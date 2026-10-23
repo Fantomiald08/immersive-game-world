@@ -160,7 +160,7 @@ function TitleScreen({ onStart }: { onStart: () => void }) {
   );
 }
 
-function WorldMap({ pos, here, onEnter, onTap }: { pos: { x: number; y: number }; here?: (typeof BUILDINGS)[number]; onEnter: (s: Screen) => void; onTap: (x: number, y: number) => void }) {
+function WorldMap({ pos, here, onEnter, onTap }: { pos: { x: number; y: number }; here: (typeof BUILDINGS)[number] | undefined; onEnter: (s: Screen) => void; onTap: (x: number, y: number) => void }) {
   return (
     <div className="space-y-3">
       <div className="pixel-box grid p-0" style={{ gridTemplateColumns: `repeat(${W}, 1fr)` }}>
@@ -231,7 +231,7 @@ function Arena({ courses, award }: { courses: Course[]; award: (xp: number, stat
     const qs = makeQuiz(c.text, 6);
     if (qs.length < 2) { setErr("Ce cours est trop court pour invoquer un boss. Ajoute plus de texte !"); return; }
     setErr(""); beep("up");
-    setFight({ name: c.title, boss: BOSSES[Math.floor(Math.random() * BOSSES.length)], qs, i: 0, hp: 3, bossHp: qs.length, pick: null, hit: null });
+    setFight({ name: c.title, boss: BOSSES[Math.floor(Math.random() * BOSSES.length)] ?? "👾", qs, i: 0, hp: 3, bossHp: qs.length, pick: null, hit: null });
   };
 
   if (!fight) return (

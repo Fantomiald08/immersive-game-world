@@ -19,7 +19,7 @@ export function persist(s: Save) {
 }
 
 export const level = (xp: number) => Math.floor(Math.sqrt(xp / 50)) + 1;
-export const levelBounds = (l: number) => [50 * (l - 1) ** 2, 50 * l * l];
+export const levelBounds = (l: number): [number, number] => [50 * (l - 1) ** 2, 50 * l * l];
 const TITLES = ["Recrue", "Technicien", "Admin réseau", "Ingénieur", "Architecte", "Légende SISR"];
 export const title = (l: number) => TITLES[Math.min(5, Math.floor((l - 1) / 2))];
 export const avatar = (l: number) => ["🧑‍💻", "🦊", "🐙", "🤖", "🐉", "👑"][Math.min(5, Math.floor((l - 1) / 2))];
