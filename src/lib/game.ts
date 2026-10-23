@@ -57,7 +57,7 @@ export function makeQuiz(text: string, n: number): Question[] {
   for (const s of shuffle(sentences)) {
     const cands = (s.match(/[A-Za-zÀ-ÿ0-9-]{6,}/g) || []);
     if (!cands.length) continue;
-    const w = cands.sort((a, b) => b.length - a.length)[0];
+    const w = cands.sort((a, b) => b.length - a.length)[0]!;
     const wrong = shuffle(words.filter((x) => x.toLowerCase() !== w.toLowerCase())).slice(0, 3);
     if (wrong.length < 3) continue;
     const options = shuffle([w, ...wrong]);

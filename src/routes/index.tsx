@@ -58,7 +58,7 @@ function Game() {
       const old = level(s.profile.xp);
       if (stat) s.profile.stats[stat] = (s.profile.stats[stat] || 0) + 1;
       s.profile.xp += xp;
-      checkBadges(s.profile).forEach((b) => toast(`${BADGES[b][0]} Succès : ${BADGES[b][1]}`));
+      checkBadges(s.profile).forEach((bd) => toast(`${BADGES[bd]?.[0]} Succès : ${BADGES[bd]?.[1]}`));
       if (xp) { toast(`+${xp} XP · ${label}`); beep("xp"); }
       const nl = level(s.profile.xp);
       if (nl > old) { setLvUp(nl); beep("up"); setTimeout(() => setLvUp(null), 3000); }
