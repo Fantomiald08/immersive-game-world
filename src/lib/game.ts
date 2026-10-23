@@ -1,6 +1,6 @@
 export type Course = { id: string; title: string; type: string; text: string; created: number };
 export type Question = { q: string; options: string[]; answer: number };
-export type Profile = { xp: number; stats: Record<string, number>; badges: string[]; streak: number; last: string };
+export type Profile = { xp: number; stats: { [k: string]: number } & Partial<Record<"dep"|"fight"|"win"|"good"|"perfect", number>>; badges: string[]; streak: number; last: string };
 
 const KEY = "isitech-save-v1";
 export type Save = { courses: Course[]; profile: Profile };
@@ -37,11 +37,11 @@ export const BADGES: Record<string, [string, string]> = {
 export function checkBadges(p: Profile): string[] {
   const s = p.stats, got: string[] = [];
   const add = (b: string, ok: boolean) => ok && !p.badges.includes(b) && (p.badges.push(b), got.push(b));
-  add("first", (s.dep || 0) >= 1);
-  add("hoard", (s.dep || 0) >= 10);
-  add("slayer", (s.win || 0) >= 1);
-  add("perfect", (s.perfect || 0) >= 1);
-  add("gamer", (s.fight || 0) >= 10);
+  add("first", (s["dep"] || 0) >= 1);
+  add("hoard", (s["dep"] || 0) >= 10);
+  add("slayer", (s["win"] || 0) >= 1);
+  add("perfect", (s["perfect"] || 0) >= 1);
+  add("gamer", (s["fight"] || 0) >= 10);
   add("streak3", p.streak >= 3);
   add("lvl5", level(p.xp) >= 5);
   return got;

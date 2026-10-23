@@ -243,7 +243,7 @@ function Arena({ courses, award }: { courses: Course[]; award: (xp: number, stat
     </div>
   );
 
-  const f = fight, q = f.qs[f.i];
+  const f = fight, q = f.qs[f.i] ?? f.qs[0]!;
   const over = f.hp <= 0 || f.bossHp <= 0 || f.i >= f.qs.length;
   const won = f.bossHp <= 0;
 
@@ -310,7 +310,7 @@ function Tavern({ save }: { save: Save }) {
       <div className="pixel-box p-4">
         <h2 className="mb-3 font-pixel text-sm text-accent">🍺 Taverne — ta fiche de héros</h2>
         <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-          {[["Parchemins", s.dep], ["Combats", s.fight], ["Boss vaincus", s.win], ["Coups critiques", s.good]].map(([k, v]) => (
+          {[["Parchemins", s["dep"]], ["Combats", s["fight"]], ["Boss vaincus", s["win"]], ["Coups critiques", s["good"]]].map(([k, v]) => (
             <div key={k as string} className="bg-muted p-3"><div className="font-pixel text-lg text-primary">{v || 0}</div><div>{k}</div></div>
           ))}
         </div>
