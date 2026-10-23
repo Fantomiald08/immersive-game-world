@@ -162,6 +162,11 @@
   --grass-2: oklch(0.6 0.14 140);
   --path: oklch(0.75 0.08 80);
   --water: oklch(0.6 0.12 230);
+  --wood: oklch(0.55 0.09 60);
+  --wood-2: oklch(0.45 0.08 55);
+  --tile: oklch(0.82 0.02 240);
+  --tile-2: oklch(0.74 0.03 240);
+  --wall: oklch(0.42 0.05 30);
 }
 @layer base {
   body { font-family: "VT323", monospace; font-size: 22px; }
@@ -185,6 +190,10 @@
 @utility tile-grass { background: repeating-conic-gradient(var(--grass) 0 25%, var(--grass-2) 0 50%) 0 0/16px 16px; }
 @utility tile-path { background: var(--path); }
 @utility tile-water { background: var(--water); }
+@utility tile-floor { background: repeating-linear-gradient(90deg, var(--wood) 0 14px, var(--wood-2) 14px 16px); }
+@utility tile-tile { background: repeating-conic-gradient(var(--tile) 0 25%, var(--tile-2) 0 50%) 0 0/24px 24px; }
+@utility tile-wall { background: linear-gradient(var(--wall) 70%, var(--border) 70% 76%, var(--wall) 76%); }
+@utility tile-door { background: var(--accent); }
 @keyframes bob { 50% { transform: translateY(-4px); } }
 @keyframes blink { 50% { opacity: 0; } }
 @keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
