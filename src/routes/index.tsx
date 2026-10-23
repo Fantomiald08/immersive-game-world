@@ -29,6 +29,7 @@ const WATER = new Set(["0,8", "1,8", "12,0", "12,1", "11,0", "0,0"]);
 const isPath = (x: number, y: number) => y === 4 || x === 6 || (y === 3 && (x === 2 || x === 10)) || (x === 6 && y === 5);
 
 let AC: AudioContext | null = null;
+let dailyDone = false;
 function beep(k: "xp" | "up" | "good" | "bad" | "step") {
   try {
     AC = AC || new AudioContext();
@@ -69,7 +70,8 @@ function Game() {
 
   useEffect(() => {
     const today = new Date().toISOString().slice(0, 10);
-    if (save.profile.last !== today) {
+    if (save.profile.last !== today && !dailyDone) {
+      dailyDone = true;
       const y = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
       award(10, null, "Connexion du jour 🔥", (s) => {
         s.profile.streak = s.profile.last === y ? s.profile.streak + 1 : 1;
