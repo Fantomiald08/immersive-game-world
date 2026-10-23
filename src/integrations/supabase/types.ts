@@ -14,7 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      courses: {
+        Row: {
+          author_id: string
+          created_at: string
+          id: string
+          npc: string
+          text: string
+          title: string
+          type: string
+        }
+        Insert: {
+          author_id: string
+          created_at?: string
+          id?: string
+          npc?: string
+          text?: string
+          title: string
+          type?: string
+        }
+        Update: {
+          author_id?: string
+          created_at?: string
+          id?: string
+          npc?: string
+          text?: string
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar: string
+          badges: string[]
+          bio: string
+          classe: string
+          id: string
+          last: string
+          pseudo: string
+          stats: Json
+          streak: number
+          updated_at: string
+          xp: number
+        }
+        Insert: {
+          avatar?: string
+          badges?: string[]
+          bio?: string
+          classe?: string
+          id: string
+          last?: string
+          pseudo?: string
+          stats?: Json
+          streak?: number
+          updated_at?: string
+          xp?: number
+        }
+        Update: {
+          avatar?: string
+          badges?: string[]
+          bio?: string
+          classe?: string
+          id?: string
+          last?: string
+          pseudo?: string
+          stats?: Json
+          streak?: number
+          updated_at?: string
+          xp?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
