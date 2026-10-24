@@ -46,41 +46,53 @@ export type Database = {
       }
       profiles: {
         Row: {
+          apparence: Json
           avatar: string
           badges: string[]
           bio: string
           classe: string
           id: string
           last: string
+          niveau: number
+          personnage_cree: boolean
           pseudo: string
           stats: Json
           streak: number
+          titre: string
           updated_at: string
           xp: number
         }
         Insert: {
+          apparence?: Json
           avatar?: string
           badges?: string[]
           bio?: string
           classe?: string
           id: string
           last?: string
+          niveau?: number
+          personnage_cree?: boolean
           pseudo?: string
           stats?: Json
           streak?: number
+          titre?: string
           updated_at?: string
           xp?: number
         }
         Update: {
+          apparence?: Json
           avatar?: string
           badges?: string[]
           bio?: string
           classe?: string
           id?: string
           last?: string
+          niveau?: number
+          personnage_cree?: boolean
           pseudo?: string
           stats?: Json
           streak?: number
+          titre?: string
           updated_at?: string
           xp?: number
         }
