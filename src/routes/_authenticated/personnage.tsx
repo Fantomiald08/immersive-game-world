@@ -57,7 +57,7 @@ function Creation() {
       <div className="pixel-box flex flex-col items-center gap-3 p-4">
         <h1 className="font-pixel text-xs text-accent">Ton personnage</h1>
         <div className="tile-tile flex h-64 w-full items-center justify-center border-4 border-border">
-          <Personnage a={a} dir={DIRS[dir]} marche taille={180} pseudo={p.pseudo} niveau={p.niveau} />
+          <Personnage a={a} dir={DIRS[dir] ?? "bas"} marche taille={180} pseudo={p.pseudo} niveau={p.niveau} />
         </div>
         <div className="flex gap-2">
           <button className="pixel-btn" onClick={() => setDir((d) => (d + 3) % 4)} aria-label="Tourner à gauche">⟲</button>
