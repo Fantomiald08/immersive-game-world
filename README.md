@@ -27,3 +27,7 @@ npm run dev
 - TypeScript
 - React
 - Tailwind CSS
+
+## Isitech World V2
+Jeu 2D multijoueur dans l'école Isitech (BTS SIO SISR). Pages : `/` accueil, `/connexion`, `/personnage` (création), `/jeu` (école).
+Règles et architecture : voir `AGENTS.md`. Avancement : `roadmap.md`.
