@@ -55,3 +55,16 @@ export function aleatoire(): Apparence {
 export function normaliser(v: unknown): Apparence {
   return { ...DEFAUT, ...(v && typeof v === "object" ? (v as Partial<Apparence>) : {}) };
 }
+
+/** Apparence stable dérivée d'un texte (pour les PNJ des cours). */
+export function apparenceDepuis(graine: string): Apparence {
+  let h = 2166136261;
+  for (const c of graine) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
+  const r = () => { h = Math.imul(h ^ (h >>> 15), 2246822507) >>> 0; return h / 4294967296; };
+  const p = <T,>(a: readonly T[]): T => a[Math.floor(r() * a.length)]!;
+  return {
+    peau: p(OPTIONS.peau), coiffure: p(OPTIONS.coiffure), cheveux: p(OPTIONS.cheveux), yeux: p(OPTIONS.yeux),
+    haut: p(OPTIONS.haut), hautCouleur: p(OPTIONS.hautCouleur), bas: p(OPTIONS.bas), basCouleur: p(OPTIONS.basCouleur),
+    chaussures: p(OPTIONS.chaussures), accessoire: p(OPTIONS.accessoire),
+  };
+}

@@ -15,6 +15,13 @@
       "when": 1792825693114,
       "tag": "0001_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792915755610,
+      "tag": "0002_ajouter_xp",
+      "breakpoints": true
     }
   ]
 }

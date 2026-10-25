@@ -30,3 +30,34 @@ export async function majProfil(id: string, champs: Partial<Pick<Profil, "pseudo
     .update({ ...champs, updated_at: new Date().toISOString() } as never).eq("id", id);
   if (error) throw error;
 }
+
+export type ProfilPublic = Pick<Profil, "id" | "pseudo" | "bio" | "titre" | "xp" | "niveau" | "apparence">;
+
+export function useProfil(id: string) {
+  return useQuery({
+    queryKey: ["profil", id],
+    queryFn: async (): Promise<ProfilPublic | null> => {
+      const { data, error } = await supabase.from("profiles").select("id,pseudo,bio,titre,xp,niveau,apparence").eq("id", id).maybeSingle();
+      if (error) throw error;
+      return data ? { ...data, apparence: normaliser(data.apparence) } : null;
+    },
+  });
+}
+
+export function useHeros() {
+  return useQuery({
+    queryKey: ["heros"],
+    queryFn: async (): Promise<ProfilPublic[]> => {
+      const { data, error } = await supabase.from("profiles").select("id,pseudo,bio,titre,xp,niveau,apparence")
+        .eq("personnage_cree", true).order("xp", { ascending: false }).limit(50);
+      if (error) throw error;
+      return data.map((d) => ({ ...d, apparence: normaliser(d.apparence) }));
+    },
+  });
+}
+
+/** Gain d'XP : seule la fonction serveur ajouter_xp peut modifier xp/niveau (plafonnée à 50 par appel). */
+export async function ajouterXp(montant: number) {
+  const { error } = await supabase.rpc("ajouter_xp", { montant });
+  if (error) throw error;
+}
