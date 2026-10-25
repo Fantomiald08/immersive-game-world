@@ -103,7 +103,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      ajouter_xp: {
+        Args: { montant: number }
+        Returns: {
+          niveau: number
+          xp: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
