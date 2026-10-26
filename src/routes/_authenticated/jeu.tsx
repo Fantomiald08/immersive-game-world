@@ -5,6 +5,7 @@ import { Fenetre } from "@/components/game/Fenetre";
 import { Combat } from "@/components/game/Combat";
 import { ProfilCarte } from "@/components/game/ProfilCarte";
 import { Personnage } from "@/components/game/Personnage";
+import { Tutoriel } from "@/components/game/Tutoriel";
 import { apparenceDepuis } from "@/game/apparence";
 import { SCENES } from "@/game/scenes";
 import { PLACES_COURS, PROF } from "@/game/scenes/Classe";
@@ -50,6 +51,9 @@ function Jeu() {
   const { data: cours = [] } = useCours();
   const { autres, envoyer } = useSalle(scene, p, depart);
 
+  const [tuto, setTuto] = useState(false);
+  useEffect(() => { if (!localStorage.getItem("isitech-tuto-vu")) setTuto(true); }, []);
+  const finTuto = () => { localStorage.setItem("isitech-tuto-vu", "1"); setTuto(false); };
   useEffect(() => { if (p && !p.personnage_cree) nav({ to: "/personnage" }); }, [p, nav]);
 
   const changer = (v: SceneId) => {
@@ -90,14 +94,16 @@ function Jeu() {
         <span className="font-pixel text-[10px] text-primary">ISITECH WORLD · <span className="text-accent">{SCENES[scene].nom}</span></span>
         <div className="flex items-center gap-2">
           <span className="text-lg">{p.pseudo} · Nv{p.niveau} · {p.xp} XP</span>
+          <button className="pixel-btn !px-2 !py-1" onClick={() => setTuto(true)} aria-label="Tutoriel">?</button>
           <button className="pixel-btn !px-2 !py-1" onClick={() => setModal({ t: "profil", id: p.id })}>Profil</button>
           <button className="pixel-btn !px-2 !py-1" onClick={async () => { await supabase.auth.signOut(); nav({ to: "/connexion" }); }}>Quitter</button>
         </div>
       </div>
-      <Monde key={scene} scene={SCENES[scene]} depart={depart} pnjs={pnjs} autres={autres} moi={p} pause={!!modal}
+      <Monde key={scene} scene={SCENES[scene]} depart={depart} pnjs={pnjs} autres={autres} moi={p} pause={!!modal || tuto}
         onPorte={changer} onPos={envoyer} onClicJoueur={(id) => setModal({ t: "profil", id })} />
       <p className="text-center text-muted-foreground">Flèches / ZQSD pour bouger · E pour parler · clique un joueur pour voir son profil · {autres.length} autre(s) joueur(s) ici</p>
 
+      {tuto && <Tutoriel onFin={finTuto} />}
       {modal?.t === "profil" && <Fenetre titre="Fiche joueur" onFermer={fermer}><ProfilCarte id={modal.id} moi={p} onMaj={majTout} /></Fenetre>}
       {modal?.t === "texte" && <Fenetre titre={modal.nom} onFermer={fermer}><p className="text-xl">{modal.texte}</p></Fenetre>}
       {modal?.t === "heros" && <Fenetre titre="Tableau des héros" onFermer={fermer}><Heros onVoir={(id) => setModal({ t: "profil", id })} /></Fenetre>}
