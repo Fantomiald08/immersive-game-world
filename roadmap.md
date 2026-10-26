@@ -7,3 +7,4 @@
 - [x] Étape 6 — Quiz et salle serveur
 - [x] Étape 7 — Progression (ajouter_xp)
 - [x] Étape 8 — Finitions
+- [ ] Tutoriel au premier lancement
