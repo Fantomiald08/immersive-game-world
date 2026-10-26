@@ -1,160 +1,261 @@
 import { useEffect, useState } from "react";
 import type { Apparence, Direction } from "@/game/apparence";
+import { nuance } from "@/game/carte/couleur";
 
 /**
- * Personnage en pied dessiné en pixel art (SVG en couches) :
- * ombre, chaussures, bas, haut, bras, tête, cheveux, accessoire.
- * 4 directions, 4 images de marche, pose immobile.
+ * Personnage « chibi » façon jeux DS : grosse tête, petit corps, tous de la même taille.
+ * Dessiné en pixel art (SVG 16×25) : 4 directions, marche à 4 images, couches personnalisables.
  */
-const shade = (hex: string, f: number) => {
-  const n = parseInt(hex.slice(1), 16);
-  const c = (s: number) => Math.max(0, Math.min(255, Math.round(((n >> s) & 255) * f)));
-  return `rgb(${c(16)},${c(8)},${c(0)})`;
-};
+const OL = "#2a1810";
+const rc = (x: number, y: number, w: number, h: number, f: string) => (
+  <rect x={x} y={y} width={w} height={h} fill={f} />
+);
+/** Boîte pixel arrondie avec contour. */
+const pb = (x: number, y: number, w: number, h: number, f: string) => (
+  <g>
+    {rc(x, y - 1, w, h + 2, OL)}
+    {rc(x - 1, y, w + 2, h, OL)}
+    {rc(x, y, w, h, f)}
+  </g>
+);
 
-export function Personnage({ a, dir = "bas", marche = false, taille = 96, pseudo, niveau }: {
-  a: Apparence; dir?: Direction; marche?: boolean; taille?: number; pseudo?: string; niveau?: number;
+export function Personnage({
+  a,
+  dir = "bas",
+  marche = false,
+  taille = 96,
+  pseudo,
+  niveau,
+}: {
+  a: Apparence;
+  dir?: Direction;
+  marche?: boolean;
+  taille?: number;
+  pseudo?: string;
+  niveau?: number;
 }) {
   const [f, setF] = useState(0);
   useEffect(() => {
-    if (!marche) { setF(0); return; }
-    const t = setInterval(() => setF((x) => (x + 1) % 4), 150);
+    if (!marche) {
+      setF(0);
+      return;
+    }
+    setF(1);
+    const t = setInterval(() => setF((x) => (x + 1) % 4), 130);
     return () => clearInterval(t);
   }, [marche]);
 
-  const side = dir === "gauche" || dir === "droite";
-  const back = dir === "haut";
-  // Décalages de marche : jambes et bras alternés, petit rebond
-  const step = [0, 1, 0, -1][f]!;
-  const bob = f % 2 === 1 ? -0.5 : 0;
-  const peauO = shade(a.peau, 0.8);
-  const hautO = shade(a.hautCouleur, 0.75);
-  const basO = shade(a.basCouleur, 0.75);
-  const chevO = shade(a.cheveux, 0.7);
-  const flip = dir === "gauche" ? "scale(-1,1) translate(-32,0)" : undefined;
+  const cote = dir === "gauche" || dir === "droite";
+  const dos = dir === "haut";
+  const bob = f % 2 === 1 ? -1 : 0;
+  const peauO = nuance(a.peau, 0.82);
+  const hautO = nuance(a.hautCouleur, 0.8);
+  const manches = a.haut === "tshirt";
 
-  const jambeG = side ? step * 1.5 : step;
-  const jambeD = side ? -step * 1.5 : -step;
-  const shortLeg = a.bas === "short";
-  const jupe = a.bas === "jupe";
+  /* Jambes : une jambe se lève à chaque pas */
+  const leve1 = f === 1 ? 1 : 0,
+    leve2 = f === 3 ? 1 : 0;
+  const o1 = f === 1 ? -2 : f === 3 ? 2 : 0;
+  const jambeCouleur = a.bas === "jupe" || a.bas === "short" ? a.peau : a.basCouleur;
+  const jambe = (x: number, lev: number, c: string, k: number) => (
+    <g key={k}>
+      {pb(x, 17, 3, 5 - lev, c)}
+      {a.bas === "short" && rc(x, 17, 3, 2, a.basCouleur)}
+      {a.bas === "jogging" && rc(x + 1, 18, 1, 3, nuance(a.basCouleur, 1.4))}
+      {pb(x - 1, 21 - lev, 4, 2, a.chaussures)}
+      {rc(x - 1, 21 - lev, 4, 1, nuance(a.chaussures, 1.25))}
+    </g>
+  );
+
+  const flip = dir === "droite" ? "translate(16,0) scale(-1,1)" : undefined;
 
   return (
-    <div className="relative inline-flex flex-col items-center" style={{ width: taille * (32 / 48) }}>
+    <div
+      className="relative inline-flex flex-col items-center"
+      style={{ width: taille * (16 / 25) }}
+    >
       {pseudo && (
-        <div className="mb-1 whitespace-nowrap bg-background/80 px-1 font-pixel text-[8px] leading-tight text-primary">
-          {pseudo}{niveau !== undefined && <span className="text-accent"> Nv{niveau}</span>}
+        <div className="mb-1 whitespace-nowrap bg-background/85 px-1 font-pixel text-[8px] leading-tight text-primary">
+          {pseudo}
+          {niveau !== undefined && <span className="text-accent"> Nv{niveau}</span>}
         </div>
       )}
-      <svg viewBox="0 0 32 48" width={taille * (32 / 48)} height={taille} shapeRendering="crispEdges" style={{ imageRendering: "pixelated" }}>
-        <ellipse cx="16" cy="46" rx="8" ry="2" fill="black" opacity="0.3" />
+      <svg
+        viewBox="0 0 16 25"
+        width={taille * (16 / 25)}
+        height={taille}
+        shapeRendering="crispEdges"
+        style={{ imageRendering: "pixelated", overflow: "visible" }}
+      >
+        <ellipse cx="8" cy="23.4" rx="5.5" ry="1.4" fill="#000" opacity="0.25" />
         <g transform={flip}>
+          {/* Sac à dos côté : derrière le corps */}
+          {a.accessoire === "sac" && cote && pb(10, 14 + bob, 3, 5, "#3a3a52")}
+          {/* Jambes */}
+          {cote ? (
+            <>
+              {jambe(7 - o1 / 2, leve2, nuance(jambeCouleur, 0.85), 1)}
+              {jambe(6 + o1 / 2, leve1, jambeCouleur, 2)}
+            </>
+          ) : (
+            <>
+              {jambe(5, leve1, jambeCouleur, 1)}
+              {jambe(8, leve2, nuance(jambeCouleur, 0.88), 2)}
+            </>
+          )}
+          {a.bas === "jupe" && pb(cote ? 5 : 4, 17, cote ? 6 : 8, 3, a.basCouleur)}
+
+          {/* Torse + bras */}
           <g transform={`translate(0,${bob})`}>
-            {/* Sac à dos (derrière sauf de dos) */}
-            {a.accessoire === "sac" && !back && <rect x={side ? 7 : 9} y="20" width={side ? 4 : 14} height="10" fill="#3a3a52" />}
-
-            {/* Jambes */}
-            <g>
-              <rect x={side ? 13 + jambeG : 11} y={32 + (side ? 0 : Math.max(0, jambeG))} width="4" height={shortLeg ? 4 : 10} fill={jupe ? a.peau : a.basCouleur} />
-              <rect x={side ? 15 + jambeD : 17} y={32 + (side ? 0 : Math.max(0, jambeD))} width="4" height={shortLeg ? 4 : 10} fill={jupe ? a.peau : basO} />
-              {(shortLeg || jupe) && <>
-                <rect x={side ? 13 + jambeG : 11} y={36} width="4" height="6" fill={a.peau} />
-                <rect x={side ? 15 + jambeD : 17} y={36} width="4" height="6" fill={peauO} />
-              </>}
-              {a.bas === "jogging" && <>
-                <rect x={side ? 13 + jambeG : 11} y={40} width="4" height="1" fill={basO} />
-                <rect x={side ? 15 + jambeD : 17} y={40} width="4" height="1" fill={basO} />
-              </>}
-              {jupe && <rect x="10" y="30" width="12" height="6" fill={a.basCouleur} />}
-              {/* Chaussures */}
-              <rect x={side ? 12 + jambeG : 10} y={42 + (side ? 0 : Math.max(0, jambeG))} width={side ? 6 : 5} height="3" fill={a.chaussures} />
-              <rect x={side ? 14 + jambeD : 17} y={42 + (side ? 0 : Math.max(0, jambeD))} width={side ? 6 : 5} height="3" fill={shade(a.chaussures, 0.8)} />
-            </g>
-
-            {/* Torse */}
-            <rect x="10" y="19" width="12" height="13" fill={a.hautCouleur} />
-            <rect x="10" y="29" width="12" height="3" fill={hautO} />
-            {a.haut === "chemise" && !back && <>
-              <rect x="15" y="19" width="2" height="13" fill={hautO} />
-              <rect x="13" y="19" width="6" height="2" fill="#f4f4f4" />
-            </>}
-            {a.haut === "veste" && !back && <>
-              <rect x="14" y="19" width="4" height="13" fill="#f4f4f4" />
-              <rect x="10" y="19" width="4" height="13" fill={hautO} />
-            </>}
-            {a.haut === "sweat" && <rect x="11" y={back ? 18 : 19} width="10" height="2" fill={hautO} />}
-            {a.haut === "sweat" && !back && !side && <rect x="13" y="25" width="6" height="3" fill={hautO} />}
-            {a.accessoire === "badge" && !back && <>
-              <rect x={side ? 17 : 18} y="23" width="3" height="3" fill="#f4f4f4" />
-              <rect x={side ? 18 : 19} y="24" width="1" height="1" fill="#2f9e5a" />
-            </>}
-
+            {cote ? (
+              <>
+                {pb(5, 13, 6, 6, a.hautCouleur)}
+                {rc(5, 17, 6, 2, hautO)}
+                {a.haut === "sweat" && rc(6, 16, 3, 2, hautO)}
+                {a.haut === "chemise" && rc(5, 13, 2, 1, "#fff")}
+                {a.haut === "veste" && rc(5, 13, 1, 6, "#f4f4f4")}
+              </>
+            ) : (
+              <>
+                {pb(4, 13, 8, 6, a.hautCouleur)}
+                {rc(4, 17, 8, 2, hautO)}
+                {a.haut === "sweat" && !dos && (
+                  <>
+                    {rc(5, 13, 6, 1, nuance(a.hautCouleur, 1.3))}
+                    {rc(6, 16, 4, 2, hautO)}
+                  </>
+                )}
+                {a.haut === "chemise" && !dos && (
+                  <>
+                    {rc(6, 13, 4, 1, "#fff")}
+                    {rc(8, 14, 1, 4, hautO)}
+                  </>
+                )}
+                {a.haut === "veste" && !dos && (
+                  <>
+                    {rc(7, 13, 2, 6, "#f4f4f4")}
+                    {rc(4, 13, 3, 6, nuance(a.hautCouleur, 0.9))}
+                  </>
+                )}
+                {a.accessoire === "badge" && !dos && (
+                  <>
+                    {rc(9, 15, 2, 2, "#fff")}
+                    {rc(10, 16, 1, 1, "#2f9e5a")}
+                  </>
+                )}
+                {a.accessoire === "sac" && !dos && (
+                  <>
+                    {rc(5, 13, 1, 5, "#3a3a52")}
+                    {rc(10, 13, 1, 5, "#3a3a52")}
+                  </>
+                )}
+                {a.accessoire === "sac" && dos && pb(4, 13, 8, 6, "#3a3a52")}
+              </>
+            )}
             {/* Bras */}
-            {side ? (
-              <g>
-                <rect x={14 - step} y="20" width="4" height="9" fill={a.haut === "tshirt" ? a.peau : a.hautCouleur} />
-                <rect x={14 - step} y={a.haut === "tshirt" ? 20 : 20} width="4" height={a.haut === "tshirt" ? 3 : 0} fill={a.hautCouleur} />
-                <rect x={14 - step} y="29" width="4" height="2" fill={a.peau} />
+            {cote ? (
+              <g transform={`translate(${f === 1 ? -1 : f === 3 ? 1 : 0},0)`}>
+                {pb(6, 14, 3, 4, manches ? a.hautCouleur : nuance(a.hautCouleur, 0.92))}
+                {rc(6, 17, 3, 1, a.peau)}
               </g>
             ) : (
-              <g>
-                <rect x="7" y={20 + Math.max(0, -step)} width="3" height="9" fill={a.haut === "tshirt" ? a.peau : a.hautCouleur} />
-                <rect x="22" y={20 + Math.max(0, step)} width="3" height="9" fill={a.haut === "tshirt" ? peauO : hautO} />
-                {a.haut === "tshirt" && <>
-                  <rect x="7" y={20 + Math.max(0, -step)} width="3" height="3" fill={a.hautCouleur} />
-                  <rect x="22" y={20 + Math.max(0, step)} width="3" height="3" fill={hautO} />
-                </>}
-                <rect x="7" y={29 + Math.max(0, -step)} width="3" height="2" fill={a.peau} />
-                <rect x="22" y={29 + Math.max(0, step)} width="3" height="2" fill={peauO} />
-              </g>
+              <>
+                {pb(
+                  1,
+                  14 + (f === 3 ? 1 : 0),
+                  2,
+                  4,
+                  manches ? a.hautCouleur : nuance(a.hautCouleur, 0.92),
+                )}
+                {rc(1, 17 + (f === 3 ? 1 : 0), 2, 1, a.peau)}
+                {pb(13, 14 + (f === 1 ? 1 : 0), 2, 4, manches ? hautO : nuance(a.hautCouleur, 0.8))}
+                {rc(13, 17 + (f === 1 ? 1 : 0), 2, 1, peauO)}
+              </>
             )}
 
-            {/* Sac de dos */}
-            {a.accessoire === "sac" && back && <rect x="10" y="20" width="12" height="10" fill="#3a3a52" />}
-
-            {/* Cou + tête */}
-            <rect x="14" y="16" width="4" height="3" fill={peauO} />
-            <rect x="9" y="4" width="14" height="13" fill={a.peau} />
-            <rect x="9" y="15" width="14" height="2" fill={peauO} />
-
-            {/* Visage */}
-            {!back && (side ? (
+            {/* Tête */}
+            {cote ? pb(3, 3, 10, 10, a.peau) : pb(2, 3, 12, 10, a.peau)}
+            {!dos && !cote && (
               <>
-                <rect x="19" y="10" width="2" height="2" fill={a.yeux} />
-                <rect x="23" y="11" width="1" height="2" fill={peauO} />
-                <rect x="19" y="14" width="2" height="1" fill={shade(a.peau, 0.6)} />
-                <rect x="13" y="10" width="2" height="3" fill={peauO} />
+                {rc(4, 7, 2, 3, a.yeux)}
+                {rc(10, 7, 2, 3, a.yeux)}
+                {rc(4, 7, 1, 1, "#fff")}
+                {rc(10, 7, 1, 1, "#fff")}
+                {rc(7, 11, 2, 1, nuance(a.peau, 0.55))}
+                {rc(3, 10, 2, 1, "#f0a090")}
+                {rc(11, 10, 2, 1, "#f0a090")}
               </>
-            ) : (
+            )}
+            {!dos && cote && (
               <>
-                <rect x="12" y="10" width="2" height="2" fill={a.yeux} />
-                <rect x="18" y="10" width="2" height="2" fill={a.yeux} />
-                <rect x="12" y="10" width="1" height="1" fill="#ffffff" />
-                <rect x="18" y="10" width="1" height="1" fill="#ffffff" />
-                <rect x="15" y="12" width="2" height="1" fill={peauO} />
-                <rect x="14" y="14" width="4" height="1" fill={shade(a.peau, 0.6)} />
+                {rc(4, 7, 2, 3, a.yeux)}
+                {rc(4, 7, 1, 1, "#fff")}
+                {rc(3, 9, 1, 1, peauO)}
+                {rc(4, 11, 2, 1, nuance(a.peau, 0.55))}
+                {rc(5, 10, 1, 1, "#f0a090")}
               </>
-            ))}
+            )}
 
-            {/* Cheveux */}
-            <Cheveux a={a} back={back} side={side} o={chevO} />
+            <Cheveux a={a} dir={dir} />
 
             {/* Accessoires de tête */}
-            {a.accessoire === "lunettes" && !back && (side
-              ? <rect x="18" y="9" width="5" height="4" fill="none" stroke="#1a1a1a" strokeWidth="1" />
-              : <>
-                <rect x="11" y="9" width="4" height="4" fill="none" stroke="#1a1a1a" strokeWidth="1" />
-                <rect x="17" y="9" width="4" height="4" fill="none" stroke="#1a1a1a" strokeWidth="1" />
-                <rect x="15" y="10" width="2" height="1" fill="#1a1a1a" />
-              </>)}
-            {a.accessoire === "casquette" && <>
-              <rect x="8" y="2" width="16" height="5" fill="#d9483b" />
-              {!back && <rect x={side ? 20 : 8} y="6" width={side ? 7 : 16} height="2" fill="#a8352b" />}
-            </>}
-            {a.accessoire === "casque" && <>
-              <rect x="8" y="1" width="16" height="2" fill="#222" />
-              {!side && <><rect x="6" y="8" width="4" height="6" fill="#222" /><rect x="22" y="8" width="4" height="6" fill="#222" /></>}
-              {side && <rect x="13" y="8" width="5" height="6" fill="#222" />}
-            </>}
+            {a.accessoire === "lunettes" &&
+              !dos &&
+              (cote ? (
+                <>
+                  <rect
+                    x="3.5"
+                    y="7.5"
+                    width="4"
+                    height="3"
+                    fill="none"
+                    stroke={OL}
+                    strokeWidth="1"
+                  />
+                  {rc(7, 8, 3, 1, OL)}
+                </>
+              ) : (
+                <>
+                  <rect
+                    x="3.5"
+                    y="7.5"
+                    width="4"
+                    height="3"
+                    fill="none"
+                    stroke={OL}
+                    strokeWidth="1"
+                  />
+                  <rect
+                    x="8.5"
+                    y="7.5"
+                    width="4"
+                    height="3"
+                    fill="none"
+                    stroke={OL}
+                    strokeWidth="1"
+                  />
+                  {rc(7, 8, 2, 1, OL)}
+                </>
+              ))}
+            {a.accessoire === "casquette" && (
+              <>
+                {pb(cote ? 3 : 1, 2, cote ? 10 : 14, 4, "#d9483b")}
+                {rc(cote ? 4 : 2, 3, 3, 1, "#f0847a")}
+                {!dos && (cote ? rc(0, 5, 5, 2, "#a8352b") : rc(2, 6, 12, 1, "#a8352b"))}
+              </>
+            )}
+            {a.accessoire === "casque" && (
+              <>
+                {rc(2, 2, 12, 1, "#2a2a40")}
+                {!cote && (
+                  <>
+                    {pb(0, 7, 2, 4, "#2a2a40")}
+                    {pb(14, 7, 2, 4, "#2a2a40")}
+                  </>
+                )}
+                {cote && pb(7, 7, 3, 4, "#2a2a40")}
+              </>
+            )}
           </g>
         </g>
       </svg>
@@ -162,45 +263,178 @@ export function Personnage({ a, dir = "bas", marche = false, taille = 96, pseudo
   );
 }
 
-function Cheveux({ a, back, side, o }: { a: Apparence; back: boolean; side: boolean; o: string }) {
-  const c = a.cheveux;
+function Cheveux({ a, dir }: { a: Apparence; dir: Direction }) {
+  const c = a.cheveux,
+    cl = nuance(c, 1.25),
+    cs = nuance(c, 0.8);
+  const cote = dir === "gauche" || dir === "droite";
+  const dos = dir === "haut";
+  const frange =
+    !dos && !cote ? (
+      <>
+        {rc(3, 6, 3, 1, c)}
+        {rc(9, 6, 4, 1, c)}
+        {rc(2, 6, 1, 3, c)}
+        {rc(13, 6, 1, 3, c)}
+      </>
+    ) : null;
+  if (cote) {
+    const fond = (
+      <>
+        {rc(9, 6, 4, 5, c)}
+        {rc(4, 5, 5, 1, c)}
+      </>
+    );
+    switch (a.coiffure) {
+      case "rase":
+        return <>{pb(4, 3, 8, 2, nuance(c, 1.0))}</>;
+      case "longue":
+        return (
+          <>
+            {pb(3, 2, 10, 4, c)}
+            {fond}
+            {pb(9, 6, 4, 9, c)}
+            {rc(4, 3, 3, 1, cl)}
+          </>
+        );
+      case "herisse":
+        return (
+          <>
+            {pb(3, 3, 10, 3, c)}
+            {rc(3, 1, 2, 2, c)}
+            {rc(6, 0, 2, 3, c)}
+            {rc(9, 1, 2, 2, c)}
+            {fond}
+          </>
+        );
+      case "chignon":
+        return (
+          <>
+            {pb(3, 2, 10, 4, c)}
+            {fond}
+            {pb(11, 0, 4, 3, c)}
+            {rc(4, 3, 3, 1, cl)}
+          </>
+        );
+      case "boucles":
+        return (
+          <>
+            {pb(2, 2, 12, 5, c)}
+            {fond}
+            {rc(10, 7, 4, 4, c)}
+            {rc(5, 1, 3, 2, c)}
+            {rc(9, 1, 3, 2, c)}
+          </>
+        );
+      default:
+        return (
+          <>
+            {pb(3, 2, 10, 4, c)}
+            {fond}
+            {rc(4, 3, 3, 1, cl)}
+          </>
+        );
+    }
+  }
+  if (dos) {
+    switch (a.coiffure) {
+      case "rase":
+        return <>{pb(2, 3, 12, 5, c)}</>;
+      case "longue":
+        return (
+          <>
+            {pb(2, 2, 12, 13, c)}
+            {rc(4, 4, 3, 1, cl)}
+            {rc(8, 12, 1, 3, cs)}
+          </>
+        );
+      case "herisse":
+        return (
+          <>
+            {pb(2, 3, 12, 8, c)}
+            {rc(2, 1, 2, 2, c)}
+            {rc(5, 0, 2, 3, c)}
+            {rc(8, 0, 2, 3, c)}
+            {rc(11, 1, 2, 2, c)}
+          </>
+        );
+      case "chignon":
+        return (
+          <>
+            {pb(2, 2, 12, 9, c)}
+            {pb(6, 0, 4, 3, c)}
+            {rc(4, 4, 3, 1, cl)}
+          </>
+        );
+      case "boucles":
+        return (
+          <>
+            {pb(1, 2, 14, 9, c)}
+            {rc(3, 1, 3, 2, c)}
+            {rc(9, 1, 3, 2, c)}
+          </>
+        );
+      default:
+        return (
+          <>
+            {pb(2, 2, 12, 9, c)}
+            {rc(4, 4, 3, 1, cl)}
+            {rc(8, 9, 1, 2, cs)}
+          </>
+        );
+    }
+  }
   switch (a.coiffure) {
     case "rase":
-      return <rect x="9" y="3" width="14" height="3" fill={c} opacity="0.85" />;
-    case "herisse":
-      return <>
-        <rect x="9" y="3" width="14" height="4" fill={c} />
-        {[9, 12, 15, 18, 21].map((x) => <rect key={x} x={x} y="1" width="2" height="2" fill={c} />)}
-        {back && <rect x="9" y="7" width="14" height="6" fill={c} />}
-        {side && <rect x="9" y="7" width="5" height="4" fill={o} />}
-      </>;
+      return <>{pb(3, 3, 10, 2, c)}</>;
     case "longue":
-      return <>
-        <rect x="8" y="2" width="16" height="5" fill={c} />
-        <rect x="7" y="6" width="3" height={back ? 14 : 13} fill={o} />
-        {!side && <rect x="22" y="6" width="3" height="13" fill={o} />}
-        {back && <rect x="9" y="6" width="14" height="14" fill={c} />}
-      </>;
+      return (
+        <>
+          {pb(2, 2, 12, 4, c)}
+          {frange}
+          {pb(1, 6, 2, 9, c)}
+          {pb(13, 6, 2, 9, c)}
+          {rc(4, 3, 3, 1, cl)}
+        </>
+      );
+    case "herisse":
+      return (
+        <>
+          {pb(2, 3, 12, 3, c)}
+          {rc(2, 1, 2, 2, c)}
+          {rc(5, 0, 2, 3, c)}
+          {rc(8, 0, 2, 3, c)}
+          {rc(11, 1, 2, 2, c)}
+          {frange}
+        </>
+      );
     case "chignon":
-      return <>
-        <rect x="9" y="3" width="14" height="4" fill={c} />
-        <rect x={side ? 6 : 13} y={side ? 4 : 0} width="6" height="4" fill={o} />
-        {back && <rect x="9" y="7" width="14" height="7" fill={c} />}
-      </>;
+      return (
+        <>
+          {pb(2, 2, 12, 4, c)}
+          {pb(6, 0, 4, 3, c)}
+          {frange}
+          {rc(4, 3, 3, 1, cl)}
+        </>
+      );
     case "boucles":
-      return <>
-        {[8, 11, 14, 17, 20].map((x) => <rect key={x} x={x} y={x % 2 ? 2 : 1} width="4" height="4" fill={x % 2 ? c : o} />)}
-        <rect x="7" y="5" width="3" height="6" fill={c} />
-        {!side && <rect x="22" y="5" width="3" height="6" fill={c} />}
-        {back && <rect x="9" y="5" width="14" height="9" fill={c} />}
-      </>;
+      return (
+        <>
+          {pb(1, 2, 14, 5, c)}
+          {rc(3, 1, 3, 2, c)}
+          {rc(9, 1, 3, 2, c)}
+          {rc(0, 5, 2, 3, c)}
+          {rc(14, 5, 2, 3, c)}
+          {rc(3, 7, 2, 1, c)}
+        </>
+      );
     default:
-      return <>
-        <rect x="9" y="3" width="14" height="4" fill={c} />
-        <rect x="9" y="6" width="2" height="3" fill={o} />
-        {!side && <rect x="21" y="6" width="2" height="3" fill={o} />}
-        {side && <rect x="9" y="6" width="6" height="4" fill={o} />}
-        {back && <rect x="9" y="6" width="14" height="7" fill={c} />}
-      </>;
+      return (
+        <>
+          {pb(2, 2, 12, 4, c)}
+          {frange}
+          {rc(4, 3, 3, 1, cl)}
+        </>
+      );
   }
 }

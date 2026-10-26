@@ -1,11 +1,8 @@
-# Isitech World V2 — feuille de route
-- [x] Étape 1 — Comptes et personnage
-- [x] Étape 2 — Hall et scènes
-- [x] Étape 3 — Temps réel
-- [x] Étape 4 — Cafétéria
-- [x] Étape 5 — Salle de classe et cours
-- [x] Étape 6 — Quiz et salle serveur
-- [x] Étape 7 — Progression (ajouter_xp)
-- [x] Étape 8 — Finitions
-- [x] Tutoriel au premier lancement
-- [ ] Import de PDF pour les cours
+# Isitech World — feuille de route
+- [x] V2 : comptes, personnage, temps réel, quiz, combats, XP
+- [x] V3 : carte de l'école d'après le plan (4 zones + 18 salles), déplacement case par case, personnages chibi, décor pixel art
+- [x] V3 : réseau Isitech (ordinateurs), dépôt de tous types de cours, catégories, activité
+- [x] V3 : paramètres (touches, son, affichage), tutoriel, plan, journal (quêtes + badges), sons
+- [ ] Quiz généré par une vraie IA (clé API + fonction serveur)
+- [ ] Anti-triche XP côté serveur, quêtes/badges enregistrés en base
+- [ ] Duel de quiz entre joueurs, mode professeur, boutique, animaux, cycle jour/nuit
