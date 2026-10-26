@@ -8,3 +8,4 @@
 - [x] Étape 7 — Progression (ajouter_xp)
 - [x] Étape 8 — Finitions
 - [x] Tutoriel au premier lancement
+- [ ] Import de PDF pour les cours
