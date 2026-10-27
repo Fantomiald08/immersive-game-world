@@ -396,7 +396,7 @@ const accueil: Zone = {
     o("logo", 8, 1),
     o("fenetre", 13, 1),
     o("fenetre", 15, 1),
-    o("panneau", 17, 1),
+    o("panneau", 17, 1, { agir: { k: "tableau" } }),
     o("affiche", 20, 1, { v: "reseau" }),
     o("comptoir", 8, 6, { w: 3 }),
     o("poste", 11, 6),

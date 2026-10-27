@@ -95,3 +95,92 @@ export function libelleCible(c: Cible): string {
       return "Examiner";
   }
 }
+
+/* ───────────── Déplacement fluide, sans aucun délai ───────────── */
+
+/**
+ * Un personnage qui se déplace. x et y sont en cases (décimales possibles pendant un pas).
+ * Règle : on ne bouge jamais en diagonale, donc au moins une des deux coordonnées est toujours entière.
+ */
+export type Mob = { x: number; y: number; dir: Direction; marche: boolean; cap: Direction | null };
+export const V_MARCHE = 4.2; // cases par seconde
+export const V_COURSE = 6.8;
+const V_ALIGNE = 16; // vitesse du recalage quand on tourne en plein pas
+const EPS = 1e-6;
+const entier = (v: number) => Math.abs(v - Math.round(v)) < EPS;
+
+export const creerMob = (x: number, y: number, dir: Direction): Mob => ({
+  x,
+  y,
+  dir,
+  marche: false,
+  cap: null,
+});
+/** Case occupée (la plus proche). */
+export const caseDe = (m: Pick<Mob, "x" | "y">): Pt => ({ x: Math.round(m.x), y: Math.round(m.y) });
+
+/**
+ * Fait avancer le personnage de dt secondes.
+ *  - voulu : direction demandée (ou null s'il n'y a plus de touche)
+ *  - changer de direction est INSTANTANÉ : demi-tour immédiat, virage immédiat (léger recalage de quelques ms sur la grille)
+ *  - sans touche, le personnage termine la case commencée puis s'arrête.
+ */
+export function avancer(
+  z: Zone,
+  m: Mob,
+  voulu: Direction | null,
+  v: number,
+  dt: number,
+  pnjs: readonly Pt[] = [],
+): void {
+  if (voulu) m.dir = voulu;
+  const enPas = !(entier(m.x) && entier(m.y));
+  const cap = voulu ?? (enPas ? m.cap : null);
+  if (!cap) {
+    m.marche = false;
+    return;
+  }
+
+  const horiz = cap === "gauche" || cap === "droite";
+  // 1) Virage : la coordonnée transversale doit être entière, on la recale très vite
+  const transv = horiz ? m.y : m.x;
+  if (!entier(transv)) {
+    const cible = Math.round(transv),
+      pas = V_ALIGNE * dt,
+      d = cible - transv;
+    m.marche = true;
+    const nv = Math.abs(d) > pas ? transv + Math.sign(d) * pas : cible;
+    if (horiz) m.y = nv;
+    else m.x = nv;
+    if (Math.abs(d) > pas) return;
+  }
+
+  // 2) Avancer dans le sens demandé, case par case, en s'arrêtant devant un obstacle
+  const s = cap === "droite" || cap === "bas" ? 1 : -1;
+  const fixe = Math.round(horiz ? m.y : m.x);
+  let a = horiz ? m.x : m.y;
+  let reste = v * dt;
+  m.cap = cap;
+  m.marche = true;
+  while (reste > EPS) {
+    if (entier(a)) {
+      a = Math.round(a);
+      const devant = horiz ? { x: a + s, y: fixe } : { x: fixe, y: a + s };
+      if (!voulu || estBloque(z, devant.x, devant.y, pnjs)) {
+        m.marche = false;
+        break;
+      }
+    }
+    const dist = s > 0 ? Math.floor(a + EPS) + 1 - a : a - (Math.ceil(a - EPS) - 1);
+    const pas = Math.min(reste, dist);
+    a += s * pas;
+    reste -= pas;
+    if (dist - pas < EPS) a = Math.round(a);
+    if (!voulu && entier(a)) {
+      m.marche = false;
+      break;
+    }
+  }
+  if (horiz) m.x = a;
+  else m.y = a;
+}

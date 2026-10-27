@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
  */
 export const TYPE_CATEGORIE = "__categorie__";
 export const TYPE_FICHIER = "__fichier__";
+export const TYPE_ANNONCE = "__annonce__";
 export const TAILLE_MAX = 2 * 1024 * 1024;
 export const FORMATS = ".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.md,.png,.jpg,.jpeg,.gif,.zip";
 
@@ -32,7 +33,19 @@ export type CategorieReseau = {
   auteur: string;
   date: string;
 };
-export type Reseau = { cours: CoursReseau[]; categories: CategorieReseau[] };
+export type AnnonceReseau = {
+  id: string;
+  titre: string;
+  corps: string;
+  auteurId: string;
+  auteur: string;
+  date: string;
+};
+export type Reseau = {
+  cours: CoursReseau[];
+  categories: CategorieReseau[];
+  annonces: AnnonceReseau[];
+};
 
 type Charge = { v: 3; description: string; contenu: string; fichier?: FichierMeta };
 
@@ -66,12 +79,24 @@ export async function chargerReseau(): Promise<Reseau> {
   const noms = new Map((ps ?? []).map((p) => [p.id, p.pseudo]));
   const auteur = (id: string) => noms.get(id) ?? "Inconnu";
   const cours: CoursReseau[] = [],
-    categories: CategorieReseau[] = [];
+    categories: CategorieReseau[] = [],
+    annonces: AnnonceReseau[] = [];
   for (const r of data) {
     if (r.type === TYPE_CATEGORIE) {
       categories.push({
         id: r.id,
         nom: r.title,
+        auteurId: r.author_id,
+        auteur: auteur(r.author_id),
+        date: r.created_at,
+      });
+      continue;
+    }
+    if (r.type === TYPE_ANNONCE) {
+      annonces.push({
+        id: r.id,
+        titre: r.title,
+        corps: r.text,
         auteurId: r.author_id,
         auteur: auteur(r.author_id),
         date: r.created_at,
@@ -91,7 +116,7 @@ export async function chargerReseau(): Promise<Reseau> {
       ...(c.fichier ? { fichier: c.fichier } : {}),
     });
   }
-  return { cours, categories };
+  return { cours, categories, annonces };
 }
 
 export const useReseau = () => useQuery({ queryKey: ["reseau"], queryFn: chargerReseau });
@@ -191,3 +216,18 @@ export const formaterDate = (d: string) =>
     hour: "2-digit",
     minute: "2-digit",
   });
+
+/** Annonces du tableau d'affichage (même table, type "__annonce__"). */
+export async function publierAnnonce(auteurId: string, titre: string, corps: string) {
+  const { error } = await supabase.from("courses").insert({
+    author_id: auteurId,
+    title: titre.trim().slice(0, 100),
+    type: TYPE_ANNONCE,
+    text: corps.trim().slice(0, 1000),
+  });
+  if (error) throw error;
+}
+export async function supprimerAnnonce(id: string) {
+  const { error } = await supabase.from("courses").delete().eq("id", id);
+  if (error) throw error;
+}

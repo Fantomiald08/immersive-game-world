@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { Monde } from "@/components/game/Monde";
 import { Personnage } from "@/components/game/Personnage";
 import { Combat } from "@/components/game/Combat";
@@ -10,25 +10,27 @@ import { QuizCours } from "@/components/game/QuizCours";
 import { Reseau } from "@/components/game/Reseau";
 import { Reglages } from "@/components/game/Reglages";
 import { Plan } from "@/components/game/Plan";
-import { Journal } from "@/components/game/Journal";
+import { Tableau } from "@/components/game/Tableau";
+import { Messages } from "@/components/game/Messages";
 import { Tuto } from "@/components/game/Tuto";
 import { titreNiveau } from "@/game/categories";
 import type { Cible } from "@/game/carte/moteur";
 import {
   SALLES,
   type Arrivee,
+  type Pt,
   type Sortie,
   type TypeMonstre,
   type ZoneId,
 } from "@/game/carte/types";
 import { ZONE_DEPART, ZONES } from "@/game/carte/zones";
-import { useSalle } from "@/game/multijoueur";
+import { useEcole, useSalle } from "@/game/multijoueur";
+import { DUREE_STATUT, MAX_STATUT, type Etat } from "@/game/salle";
 import { ajouterXp, useHeros, useMonProfil, useRafraichirProfil, type Profil } from "@/game/profil";
 import { evenement, ouvrirJour, type Evenement, type Prog } from "@/game/progression";
 import { BANQUE, genererQuestions, melange, type Question } from "@/game/quiz";
 import { majReglages, useReglages } from "@/game/reglages";
-import type { CoursReseau } from "@/game/reseau";
-import { useReseau } from "@/game/reseau";
+import { useReseau, type CoursReseau } from "@/game/reseau";
 import { jouer } from "@/game/son";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -52,7 +54,8 @@ type Fen =
   | { k: "combat"; monstre: string; type: TypeMonstre; qs: Question[]; id: string | null }
   | { k: "reglages" }
   | { k: "plan" }
-  | { k: "journal" }
+  | { k: "tableau" }
+  | { k: "messages"; id: string | null }
   | { k: "tuto" };
 
 const EMOTES = ["👋", "😂", "💃", "👏"];
@@ -83,18 +86,43 @@ function Partie({ moi }: { moi: Profil }) {
   const [toast, setToast] = useState("");
   const [vaincus, setVaincus] = useState<string[]>([]);
   const [msg, setMsg] = useState("");
+  const [statutOuvert, setStatutOuvert] = useState(false);
+  const [statutTexte, setStatutTexte] = useState("");
   const [prog, setProg] = useState<Prog | null>(null);
   const [montee, setMontee] = useState(0);
+  const [, tictac] = useState(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const niveauPrec = useRef(moi.niveau);
 
   const zone = ZONES[zoneId];
-  const { autres, envoyer, dire, bulles } = useSalle(zoneId, moi, depart);
+  const etatRef = useRef<() => Etat>(() => ({
+    x: depart.x,
+    y: depart.y,
+    dir: depart.dir,
+    marche: false,
+    run: false,
+  })) as MutableRefObject<() => Etat>;
+  const positionsRef = useRef<() => { moi: Pt; autres: Array<Pt & { id: string }> }>(() => ({
+    moi: { x: depart.x, y: depart.y },
+    autres: [],
+  })) as MutableRefObject<() => { moi: Pt; autres: Array<Pt & { id: string }> }>;
 
   const annoncer = useCallback((t: string) => {
     setToast(t);
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => setToast(""), 3200);
+  }, []);
+
+  const salle = useSalle(zoneId, moi, () => etatRef.current());
+  const ecole = useEcole(moi, zoneId, (pseudo, t) => {
+    annoncer(`✉ ${pseudo} : ${t.slice(0, 50)}`);
+    jouer("ok");
+  });
+
+  // Petit rafraîchissement pour le compte à rebours du statut
+  useEffect(() => {
+    const t = setInterval(() => tictac((v) => v + 1), 15000);
+    return () => clearInterval(t);
   }, []);
 
   const gagnerXp = useCallback(
@@ -128,7 +156,6 @@ function Partie({ moi }: { moi: Profil }) {
     [annoncer, gagnerXp, moi.id],
   );
 
-  /* Ouverture de la journée : série, quêtes remises à zéro, tutoriel */
   useEffect(() => {
     const { prog: pr, gains } = ouvrirJour(moi.id);
     setProg(pr);
@@ -137,7 +164,6 @@ function Partie({ moi }: { moi: Profil }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* Animation de montée de niveau */
   useEffect(() => {
     if (moi.niveau > niveauPrec.current) {
       setMontee(moi.niveau);
@@ -173,31 +199,34 @@ function Partie({ moi }: { moi: Profil }) {
 
   const onAction = useCallback(
     (c: Cible) => {
+      jouer("ok");
       if (c.k === "pnj") {
         const n = c.p;
-        if (n.monstre) {
-          jouer("ok");
+        if (n.monstre)
           setFen({ k: "combat", monstre: n.nom, type: n.monstre, qs: questionsMix(), id: n.id });
-        } else {
-          jouer("ok");
-          setFen({ k: "texte", titre: n.nom, texte: n.texte ?? "..." });
-        }
+        else setFen({ k: "texte", titre: n.nom, texte: n.texte ?? "..." });
         return;
       }
       const a = c.o.agir!;
-      if (a.k === "porte") {
-        jouer("porte");
-        aller(a.vers, a.arrivee);
-      } else if (a.k === "terminal") {
-        jouer("ok");
-        setTerminal(true);
-      } else if (a.k === "classement") {
-        jouer("ok");
-        void qc.invalidateQueries({ queryKey: ["heros"] });
-        setFen({ k: "classement" });
-      } else {
-        jouer("ok");
-        setFen({ k: "texte", titre: a.titre, texte: a.texte });
+      switch (a.k) {
+        case "porte":
+          jouer("porte");
+          aller(a.vers, a.arrivee);
+          break;
+        case "terminal":
+          setTerminal(true);
+          break;
+        case "classement":
+          void qc.invalidateQueries({ queryKey: ["heros"] });
+          setFen({ k: "classement" });
+          break;
+        case "tableau":
+          void qc.invalidateQueries({ queryKey: ["reseau"] });
+          setFen({ k: "tableau" });
+          break;
+        case "texte":
+          setFen({ k: "texte", titre: a.titre, texte: a.texte });
+          break;
       }
     },
     [aller, qc, questionsMix],
@@ -206,6 +235,13 @@ function Partie({ moi }: { moi: Profil }) {
   const onSortie = useCallback((s: Sortie) => aller(s.vers, s.arrivee), [aller]);
 
   const pnjs = useMemo(() => zone.pnjs.filter((n) => !vaincus.includes(n.id)), [zone, vaincus]);
+  const noms = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const p of ecole.roster) m[p.id] = p.pseudo;
+    for (const a of salle.autres) m[a.id] = a.pseudo;
+    return m;
+  }, [ecole.roster, salle.autres]);
+
   const fermer = () => setFen(null);
   const finTuto = () => {
     majReglages({ tutoVu: true });
@@ -216,9 +252,22 @@ function Partie({ moi }: { moi: Profil }) {
     nav({ to: "/connexion" });
   };
   const envoyerMsg = () => {
-    if (dire(msg)) setMsg("");
+    if (salle.dire(msg)) setMsg("");
+  };
+  const afficherStatut = () => {
+    salle.definirStatut(statutTexte);
+    setStatutOuvert(false);
+    if (statutTexte.trim()) annoncer("📌 Statut affiché pendant 5 minutes.");
+  };
+  const retirerStatut = () => {
+    salle.definirStatut("");
+    setStatutTexte("");
   };
   const pause = fen !== null || terminal || fondu;
+  const minutes = salle.statutMoi
+    ? Math.max(1, Math.ceil((salle.statutMoi.fin - Date.now()) / 60000))
+    : 0;
+  const onOuvrirMsg = useCallback((id: string | null) => ecole.ouvrir(id), [ecole.ouvrir]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div
@@ -234,10 +283,18 @@ function Partie({ moi }: { moi: Profil }) {
         </span>
         <div className="flex flex-wrap gap-2">
           <button className="pixel-btn !px-2 !py-1" onClick={() => setFen({ k: "plan" })}>
-            🗺 Plan
+            🗺 Carte
           </button>
-          <button className="pixel-btn !px-2 !py-1" onClick={() => setFen({ k: "journal" })}>
-            📔 Journal
+          <button
+            className="pixel-btn !px-2 !py-1"
+            onClick={() => setFen({ k: "messages", id: null })}
+          >
+            ✉ Messages
+            {ecole.nonLus > 0 && (
+              <span className="ml-1 rounded-full bg-destructive px-2 text-xs text-white">
+                {ecole.nonLus}
+              </span>
+            )}
           </button>
           <button
             className="pixel-btn !px-2 !py-1"
@@ -265,6 +322,9 @@ function Partie({ moi }: { moi: Profil }) {
         <span className="text-sm">
           {titreNiveau(moi.niveau)} · {moi.xp} XP
         </span>
+        <span className="hidden text-sm text-muted-foreground sm:inline">
+          👥 {ecole.roster.length} en ligne
+        </span>
       </div>
 
       <div className="relative">
@@ -273,15 +333,19 @@ function Partie({ moi }: { moi: Profil }) {
           zone={zone}
           depart={depart}
           pnjs={pnjs}
-          autres={autres}
+          autres={salle.autres}
+          lireAutres={salle.lireAutres}
           moi={moi}
           pause={pause}
-          bulles={bulles}
+          bulles={salle.bulles}
+          statuts={salle.statuts}
           reglages={reglages}
           onAction={onAction}
           onSortie={onSortie}
-          onPos={envoyer}
+          onEtat={salle.envoyerEtat}
           onClicJoueur={(id) => setFen({ k: "profil", id })}
+          etatRef={etatRef}
+          positionsRef={positionsRef}
         />
         <div
           className="pointer-events-none absolute inset-0 z-[2600] bg-black transition-opacity duration-200"
@@ -289,25 +353,64 @@ function Partie({ moi }: { moi: Profil }) {
         />
       </div>
 
-      <div className="pixel-box flex flex-wrap items-center gap-2 p-2">
-        <input
-          className="pixel-input !w-auto min-w-0 flex-1"
-          placeholder="Écris un message (Entrée pour envoyer)…"
-          maxLength={60}
-          value={msg}
-          onChange={(e) => setMsg(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") envoyerMsg();
-          }}
-        />
-        <button className="pixel-btn !px-2 !py-1" onClick={envoyerMsg}>
-          Envoyer
-        </button>
-        {EMOTES.map((e) => (
-          <button key={e} className="pixel-btn !px-2 !py-1 text-lg" onClick={() => dire(e)}>
-            {e}
+      <div className="pixel-box space-y-2 p-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            className="pixel-input !w-auto min-w-0 flex-1"
+            placeholder="Écris un message (Entrée pour envoyer)…"
+            maxLength={60}
+            value={msg}
+            onChange={(e) => setMsg(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") envoyerMsg();
+            }}
+          />
+          <button className="pixel-btn !px-2 !py-1" onClick={envoyerMsg}>
+            Envoyer
           </button>
-        ))}
+          {EMOTES.map((e) => (
+            <button key={e} className="pixel-btn !px-2 !py-1 text-lg" onClick={() => salle.dire(e)}>
+              {e}
+            </button>
+          ))}
+          <button
+            className={`pixel-btn !px-2 !py-1 ${salle.statutMoi ? "!bg-accent" : ""}`}
+            onClick={() => setStatutOuvert((v) => !v)}
+          >
+            📌 Statut
+          </button>
+        </div>
+        {(statutOuvert || salle.statutMoi) && (
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            {salle.statutMoi && (
+              <span className="text-accent">
+                📌 « {salle.statutMoi.t} » · encore ~{minutes} min
+              </span>
+            )}
+            {statutOuvert && (
+              <>
+                <input
+                  className="pixel-input !w-auto min-w-0 flex-1"
+                  maxLength={MAX_STATUT}
+                  placeholder={`Ton message au-dessus de ta tête (reste ${DUREE_STATUT / 60000} min)`}
+                  value={statutTexte}
+                  onChange={(e) => setStatutTexte(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") afficherStatut();
+                  }}
+                />
+                <button className="pixel-btn !px-2 !py-1" onClick={afficherStatut}>
+                  Afficher
+                </button>
+              </>
+            )}
+            {salle.statutMoi && (
+              <button className="pixel-btn !px-2 !py-1" onClick={retirerStatut}>
+                ✕ Retirer
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {toast && (
@@ -349,6 +452,14 @@ function Partie({ moi }: { moi: Profil }) {
       {fen?.k === "profil" && (
         <Fenetre titre="Profil" onFermer={fermer}>
           <ProfilCarte id={fen.id} moi={moi} onMaj={refresh} />
+          {fen.id !== moi.id && (
+            <button
+              className="pixel-btn mt-3"
+              onClick={() => setFen({ k: "messages", id: fen.id })}
+            >
+              ✉ Message privé
+            </button>
+          )}
         </Fenetre>
       )}
       {fen?.k === "texte" && (
@@ -418,8 +529,29 @@ function Partie({ moi }: { moi: Profil }) {
         </Fenetre>
       )}
       {fen?.k === "reglages" && <Reglages onFermer={fermer} onTuto={() => setFen({ k: "tuto" })} />}
-      {fen?.k === "plan" && <Plan zone={zoneId} lieu={zone.lieu} onFermer={fermer} />}
-      {fen?.k === "journal" && prog && <Journal prog={prog} onFermer={fermer} />}
+      {fen?.k === "plan" && (
+        <Plan
+          zone={zoneId}
+          lieu={zone.lieu}
+          roster={ecole.roster}
+          positionsRef={positionsRef}
+          noms={noms}
+          moiId={moi.id}
+          onFermer={fermer}
+        />
+      )}
+      {fen?.k === "tableau" && <Tableau moi={moi} prog={prog} onFermer={fermer} />}
+      {fen?.k === "messages" && (
+        <Messages
+          moiId={moi.id}
+          roster={ecole.roster}
+          conv={ecole.conv}
+          initial={fen.id}
+          onEnvoyer={ecole.envoyer}
+          onOuvrir={onOuvrirMsg}
+          onFermer={fermer}
+        />
+      )}
       {fen?.k === "tuto" && <Tuto onFin={finTuto} />}
     </div>
   );

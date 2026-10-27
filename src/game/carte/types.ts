@@ -75,6 +75,7 @@ export type Agir =
   | { k: "porte"; vers: ZoneId; arrivee: Arrivee; nom: string }
   | { k: "terminal" }
   | { k: "classement" }
+  | { k: "tableau" }
   | { k: "texte"; titre: string; texte: string };
 
 export type Objet = {

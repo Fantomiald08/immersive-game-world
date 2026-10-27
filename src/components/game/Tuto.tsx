@@ -19,7 +19,12 @@ export function Tuto({ onFin }: { onFin: () => void }) {
     },
     {
       titre: "Interagir",
-      texte: `Place-toi face à une porte, un ordinateur ou un personnage et appuie sur ${nomTouche(t.agir[0]!)}. Pour passer d'une zone à l'autre, marche jusqu'au bord de l'écran.`,
+      texte: `Place-toi face à une porte, un ordinateur ou un personnage et appuie sur ${nomTouche(t.agir[0]!)}. Change de direction quand tu veux : le personnage répond tout de suite. Pour passer d'une zone à l'autre, marche jusqu'au bord de l'écran.`,
+    },
+    {
+      titre: "Discuter avec les autres",
+      texte:
+        "Écris dans la barre du bas pour afficher une bulle de 4 secondes. Le bouton 📌 Statut affiche un message au-dessus de ta tête pendant 5 minutes. ✉ Messages permet d'écrire en privé à un élève connecté. Le tableau d'affichage de l'accueil donne les annonces et ton journal.",
     },
     {
       titre: "Le réseau Isitech",
@@ -29,7 +34,7 @@ export function Tuto({ onFin }: { onFin: () => void }) {
     {
       titre: "Progresser",
       texte:
-        "Réussis des quiz, bats les monstres de la salle serveur, fais les quêtes du jour. Tu gagnes de l'XP et tu montes dans le classement de la cafétéria. Le menu ⚙ permet de changer les touches.",
+        "Réussis des quiz, bats les monstres de la salle serveur, fais les quêtes du jour. Tu gagnes de l'XP et tu montes dans le classement de la cafétéria. Le menu ⚙ permet de changer les touches, et 🗺 Carte montre où sont les autres.",
     },
   ];
   const p = pages[i]!;
