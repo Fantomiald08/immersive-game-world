@@ -23,3 +23,7 @@
 - Decor objects are data (position, type, collision) so rooms are easy to extend.
 - Game pages live under src/routes/_authenticated; /connexion is the public auth page.
 - Player positions use Realtime broadcast/presence only, never stored in the database.
+
+- Two networks: normal computers (agir `terminal`) open the COURSE network (src/components/game/Reseau.tsx); gaming PCs (agir `combat`, only in serveurs/developpeur/labo) open the COMBAT network (ReseauCombat.tsx -> Arene.tsx). Fight rules are pure and tested in src/game/combat.ts.
+- Admin rights: src/game/admins.ts (ADMIN_IDS). Categories/hidden courses/validated quizzes live in ONE document (`__organisation__` row in `courses`) written by an admin; readers only trust admin-authored documents (see reseau.ts `assembler`, organisation.ts).
+- Quizzes are `__quiz__` rows. AI generation goes through the edge function supabase/functions/generer-quiz (handler.ts is dependency-free and shared with the app and the tests). The API key (GEMINI_API_KEY) lives only in server secrets, never in the client.

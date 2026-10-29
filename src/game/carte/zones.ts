@@ -30,8 +30,13 @@ const o = (kind: Kind, x: number, y: number, e: Partial<Objet> = {}): Objet => {
     plat: d.plat ?? false,
     ...e,
   };
-  // Chaque poste informatique ouvre le réseau Isitech
-  return kind === "poste" && !base.agir ? { ...base, agir: { k: "terminal" } } : base;
+  // Ordinateur normal : réseau cours. PC gaming : réseau combat.
+  if (base.agir) return base;
+  return kind === "poste"
+    ? { ...base, agir: { k: "terminal" } }
+    : kind === "pcgamer"
+      ? { ...base, agir: { k: "combat" } }
+      : base;
 };
 const pnj = (
   id: string,
@@ -791,7 +796,8 @@ const SALLES_DEF: Zone[] = [
     [
       o("clim", 5, 1),
       ...rangee("baie", [2, 3, 4, 8, 9, 10], 2),
-      o("poste", 5, 4),
+      o("pcgamer", 3, 4),
+      o("pcgamer", 7, 4),
       o("baie", 1, 5),
       o("baie", 1, 6),
       o("baie", 10, 5),
@@ -799,10 +805,14 @@ const SALLES_DEF: Zone[] = [
       o("poubelle", 10, 8),
     ],
     [
-      monstre("virus", "Virus", 3, 5),
-      monstre("malware", "Malware", 8, 5),
-      monstre("bug", "Bug", 4, 7),
-      monstre("ransomware", "Ransomware", 9, 7),
+      pnj(
+        "serv-admin",
+        5,
+        6,
+        "haut",
+        "Administrateur",
+        "Ces PC gaming sont reliés au réseau combat : choisis ton quiz, ton niveau, et affronte le monstre. Il y en a aussi au Labo et chez les Développeurs.",
+      ),
     ],
   ),
 
@@ -816,8 +826,8 @@ const SALLES_DEF: Zone[] = [
       o("fenetre", 10, 1),
       o("poste", 2, 3),
       o("poste", 2, 5),
-      o("poste", 7, 3),
-      o("poste", 7, 5),
+      o("pcgamer", 7, 3),
+      o("pcgamer", 7, 5),
       o("canape", 8, 7, { c: "#d9483b" }),
       o("lampadaire", 1, 7),
       o("plante", 10, 3),
@@ -871,7 +881,8 @@ const SALLES_DEF: Zone[] = [
       o("lavabo", 1, 2),
       o("table", 2, 4, { c: "#f1ead6" }),
       o("table", 8, 4, { c: "#f1ead6" }),
-      o("poste", 5, 5),
+      o("pcgamer", 5, 3),
+      o("pcgamer", 5, 5),
       o("baie", 9, 2),
       o("baie", 10, 2),
       o("armoire", 10, 7),
@@ -880,8 +891,8 @@ const SALLES_DEF: Zone[] = [
     [
       pnj(
         "labo-chercheur",
-        5,
-        3,
+        7,
+        7,
         "bas",
         "Technicien",
         "Dans ce labo, on monte des réseaux de test : routeurs, switchs, câbles... C'est là que tout s'apprend.",

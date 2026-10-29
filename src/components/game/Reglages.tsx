@@ -14,7 +14,16 @@ import {
 import { jouer } from "@/game/son";
 
 /** Menu Paramètres : touches, son, affichage, mobile. */
-export function Reglages({ onFermer, onTuto }: { onFermer: () => void; onTuto: () => void }) {
+export function Reglages({
+  onFermer,
+  onTuto,
+  compte,
+}: {
+  onFermer: () => void;
+  onTuto: () => void;
+  compte?: { id: string; pseudo: string; admin: boolean };
+}) {
+  const [copie, setCopie] = useState(false);
   const r = useReglages();
   const [attente, setAttente] = useState<Action | null>(null);
   const [msg, setMsg] = useState("");
@@ -179,6 +188,36 @@ export function Reglages({ onFermer, onTuto }: { onFermer: () => void; onTuto: (
             ))}
           </div>
         </section>
+
+        {compte && (
+          <section className="space-y-1">
+            <h3 className="font-pixel text-[10px] text-accent">MON COMPTE</h3>
+            <p>
+              {compte.pseudo}
+              {compte.admin ? " · admin" : ""}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Mon identifiant (à donner à l'administrateur du jeu pour devenir admin) :
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <code className="pixel-box select-all break-all px-2 py-1 text-sm">{compte.id}</code>
+              <button
+                className="pixel-btn !px-2 !py-1"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(compte.id);
+                    setCopie(true);
+                    setTimeout(() => setCopie(false), 1500);
+                  } catch {
+                    /* presse-papiers indisponible */
+                  }
+                }}
+              >
+                {copie ? "Copié ✔" : "Copier"}
+              </button>
+            </div>
+          </section>
+        )}
 
         <div className="flex flex-wrap gap-2">
           <button className="pixel-btn" onClick={onTuto}>

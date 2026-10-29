@@ -100,3 +100,27 @@ describe("carte de l'école", () => {
     });
   }
 });
+
+describe("deux réseaux : cours et combats", () => {
+  const nb = (id: keyof typeof ZONES, k: "terminal" | "combat") =>
+    ZONES[id].objets.filter((o) => o.agir?.k === k).length;
+  it("les PC gaming (réseau combat) sont uniquement dans les salles Serveurs, Développeur et Labo", () => {
+    for (const z of tout) {
+      const n = z.objets.filter((o) => o.agir?.k === "combat").length;
+      expect(n > 0, z.nom).toBe(["serveurs", "developpeur", "labo"].includes(z.id));
+    }
+  });
+  it("il y a au moins 2 PC gaming par salle concernée", () => {
+    for (const id of ["serveurs", "developpeur", "labo"] as const)
+      expect(nb(id, "combat")).toBeGreaterThanOrEqual(2);
+  });
+  it("les ordinateurs normaux (réseau cours) restent présents un peu partout, notamment à l'accueil", () => {
+    expect(nb("accueil", "terminal")).toBeGreaterThanOrEqual(1);
+    expect(
+      tout.filter((z) => z.objets.some((o) => o.agir?.k === "terminal")).length,
+    ).toBeGreaterThanOrEqual(10);
+  });
+  it("plus aucun monstre qui se promène dans les salles", () => {
+    expect(tout.flatMap((z) => z.pnjs).filter((p) => p.monstre)).toHaveLength(0);
+  });
+});

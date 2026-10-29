@@ -3,34 +3,26 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { Monde } from "@/components/game/Monde";
 import { Personnage } from "@/components/game/Personnage";
-import { Combat } from "@/components/game/Combat";
+import { ReseauCombat } from "@/components/game/ReseauCombat";
 import { Fenetre } from "@/components/game/Fenetre";
 import { ProfilCarte } from "@/components/game/ProfilCarte";
-import { QuizCours } from "@/components/game/QuizCours";
 import { Reseau } from "@/components/game/Reseau";
 import { Reglages } from "@/components/game/Reglages";
 import { Plan } from "@/components/game/Plan";
 import { Tableau } from "@/components/game/Tableau";
 import { Messages } from "@/components/game/Messages";
 import { Tuto } from "@/components/game/Tuto";
+import { estAdmin } from "@/game/admins";
 import { titreNiveau } from "@/game/categories";
 import type { Cible } from "@/game/carte/moteur";
-import {
-  SALLES,
-  type Arrivee,
-  type Pt,
-  type Sortie,
-  type TypeMonstre,
-  type ZoneId,
-} from "@/game/carte/types";
+import { SALLES, type Arrivee, type Pt, type Sortie, type ZoneId } from "@/game/carte/types";
 import { ZONE_DEPART, ZONES } from "@/game/carte/zones";
 import { useEcole, useSalle } from "@/game/multijoueur";
 import { DUREE_STATUT, MAX_STATUT, type Etat } from "@/game/salle";
 import { ajouterXp, useHeros, useMonProfil, useRafraichirProfil, type Profil } from "@/game/profil";
 import { evenement, ouvrirJour, type Evenement, type Prog } from "@/game/progression";
-import { BANQUE, genererQuestions, melange, type Question } from "@/game/quiz";
+import type { Etat as EtatCombat } from "@/game/combat";
 import { majReglages, useReglages } from "@/game/reglages";
-import { useReseau, type CoursReseau } from "@/game/reseau";
 import { jouer } from "@/game/son";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -50,8 +42,6 @@ type Fen =
   | { k: "profil"; id: string }
   | { k: "texte"; titre: string; texte: string }
   | { k: "classement" }
-  | { k: "quiz"; titre: string; qs: Question[] }
-  | { k: "combat"; monstre: string; type: TypeMonstre; qs: Question[]; id: string | null }
   | { k: "reglages" }
   | { k: "plan" }
   | { k: "tableau" }
@@ -75,16 +65,15 @@ function Partie({ moi }: { moi: Profil }) {
   const qc = useQueryClient();
   const refresh = useRafraichirProfil();
   const reglages = useReglages();
-  const { data: reseau } = useReseau();
   const { data: heros = [] } = useHeros();
 
   const [zoneId, setZoneId] = useState<ZoneId>(ZONE_DEPART);
   const [depart, setDepart] = useState<Arrivee>(ZONES[ZONE_DEPART].depart);
   const [fondu, setFondu] = useState(false);
   const [fen, setFen] = useState<Fen | null>(null);
-  const [terminal, setTerminal] = useState(false);
+  const [terminal, setTerminal] = useState<null | "cours" | "combat">(null);
+  const [defiFait, setDefiFait] = useState(() => lireDefi(moi.id));
   const [toast, setToast] = useState("");
-  const [vaincus, setVaincus] = useState<string[]>([]);
   const [msg, setMsg] = useState("");
   const [statutOuvert, setStatutOuvert] = useState(false);
   const [statutTexte, setStatutTexte] = useState("");
@@ -187,24 +176,12 @@ function Partie({ moi }: { moi: Profil }) {
     [evt],
   );
 
-  const questionsCours = (c: CoursReseau) =>
-    genererQuestions(c.contenu || c.description || c.titre, 5);
-  const questionsMix = useCallback(() => {
-    const texte = (reseau?.cours ?? [])
-      .map((c) => c.contenu)
-      .join("\n")
-      .slice(0, 6000);
-    return melange([...genererQuestions(texte, 4), ...melange(BANQUE).slice(0, 4)]);
-  }, [reseau]);
-
   const onAction = useCallback(
     (c: Cible) => {
       jouer("ok");
       if (c.k === "pnj") {
         const n = c.p;
-        if (n.monstre)
-          setFen({ k: "combat", monstre: n.nom, type: n.monstre, qs: questionsMix(), id: n.id });
-        else setFen({ k: "texte", titre: n.nom, texte: n.texte ?? "..." });
+        setFen({ k: "texte", titre: n.nom, texte: n.texte ?? "..." });
         return;
       }
       const a = c.o.agir!;
@@ -214,7 +191,10 @@ function Partie({ moi }: { moi: Profil }) {
           aller(a.vers, a.arrivee);
           break;
         case "terminal":
-          setTerminal(true);
+          setTerminal("cours");
+          break;
+        case "combat":
+          setTerminal("combat");
           break;
         case "classement":
           void qc.invalidateQueries({ queryKey: ["heros"] });
@@ -229,18 +209,39 @@ function Partie({ moi }: { moi: Profil }) {
           break;
       }
     },
-    [aller, qc, questionsMix],
+    [aller, qc],
   );
 
   const onSortie = useCallback((s: Sortie) => aller(s.vers, s.arrivee), [aller]);
 
-  const pnjs = useMemo(() => zone.pnjs.filter((n) => !vaincus.includes(n.id)), [zone, vaincus]);
+  const pnjs = zone.pnjs;
   const noms = useMemo(() => {
     const m: Record<string, string> = {};
     for (const p of ecole.roster) m[p.id] = p.pseudo;
     for (const a of salle.autres) m[a.id] = a.pseudo;
     return m;
   }, [ecole.roster, salle.autres]);
+
+  /** Fin d'un combat : XP selon la difficulté et la précision, quêtes, badges, défi du jour (bonus une fois par jour). */
+  const finCombat = useCallback(
+    async (e: EtatCombat, xp: number, defi: boolean) => {
+      let gain = xp;
+      if (defi) {
+        if (e.fin === "victoire") gain = Math.min(50, Math.round(xp * 1.5));
+        marquerDefi(moi.id);
+        setDefiFait(true);
+      }
+      await gagnerXp(
+        gain,
+        e.fin === "victoire"
+          ? `combat gagné${defi ? " (défi du jour ×1,5)" : ""}`
+          : "combat terminé",
+      );
+      void evt({ k: "quiz", score: e.bonnes, total: e.bonnes + e.mauvaises });
+      if (e.fin === "victoire") void evt({ k: "monstre" });
+    },
+    [evt, gagnerXp, moi.id],
+  );
 
   const fermer = () => setFen(null);
   const finTuto = () => {
@@ -263,7 +264,7 @@ function Partie({ moi }: { moi: Profil }) {
     salle.definirStatut("");
     setStatutTexte("");
   };
-  const pause = fen !== null || terminal || fondu;
+  const pause = fen !== null || terminal !== null || fondu;
   const minutes = salle.statutMoi
     ? Math.max(1, Math.ceil((salle.statutMoi.fin - Date.now()) / 60000))
     : 0;
@@ -427,25 +428,23 @@ function Partie({ moi }: { moi: Profil }) {
         </div>
       )}
 
-      {terminal && (
+      {terminal === "cours" && (
         <Reseau
           moi={moi}
-          onFermer={() => setTerminal(false)}
+          onFermer={() => setTerminal(null)}
           onEntree={() => void evt({ k: "reseau" })}
           onDepose={() => {
             void evt({ k: "depot" });
             void gagnerXp(10, "cours déposé");
           }}
-          onQuiz={(c) => setFen({ k: "quiz", titre: c.titre, qs: questionsCours(c) })}
-          onDefier={(c) =>
-            setFen({
-              k: "combat",
-              monstre: `Boss ${c.categorie}`.slice(0, 20),
-              type: "malware",
-              qs: genererQuestions(c.contenu || c.description || c.titre, 6),
-              id: null,
-            })
-          }
+        />
+      )}
+      {terminal === "combat" && (
+        <ReseauCombat
+          moi={moi}
+          defiFait={defiFait}
+          onFermer={() => setTerminal(null)}
+          onTermine={finCombat}
         />
       )}
 
@@ -468,40 +467,6 @@ function Partie({ moi }: { moi: Profil }) {
           <button className="pixel-btn mt-3" onClick={fermer}>
             OK
           </button>
-        </Fenetre>
-      )}
-      {fen?.k === "quiz" && (
-        <Fenetre titre={`Quiz : ${fen.titre}`} onFermer={fermer} large>
-          <QuizCours
-            questions={fen.qs}
-            onFermer={fermer}
-            onFin={async (s, t) => {
-              await gagnerXp(s * 4, `quiz ${s}/${t}`);
-              void evt({ k: "quiz", score: s, total: t });
-            }}
-          />
-        </Fenetre>
-      )}
-      {fen?.k === "combat" && (
-        <Fenetre titre="Combat !" onFermer={fermer} large>
-          <Combat
-            monstre={fen.monstre}
-            type={fen.type}
-            questions={fen.qs}
-            moi={moi}
-            gainXp={20}
-            onFermer={fermer}
-            onVictoire={async () => {
-              jouer("niveau");
-              await gagnerXp(20, `${fen.monstre} vaincu`);
-              void evt({ k: "monstre" });
-              const id = fen.id;
-              if (id) {
-                setVaincus((v) => [...v, id]);
-                setTimeout(() => setVaincus((v) => v.filter((x) => x !== id)), 45000);
-              }
-            }}
-          />
         </Fenetre>
       )}
       {fen?.k === "classement" && (
@@ -528,7 +493,13 @@ function Partie({ moi }: { moi: Profil }) {
           </ol>
         </Fenetre>
       )}
-      {fen?.k === "reglages" && <Reglages onFermer={fermer} onTuto={() => setFen({ k: "tuto" })} />}
+      {fen?.k === "reglages" && (
+        <Reglages
+          onFermer={fermer}
+          onTuto={() => setFen({ k: "tuto" })}
+          compte={{ id: moi.id, pseudo: moi.pseudo, admin: estAdmin(moi) }}
+        />
+      )}
       {fen?.k === "plan" && (
         <Plan
           zone={zoneId}
@@ -563,5 +534,23 @@ function lireTuto() {
     return JSON.parse(window.localStorage.getItem("isitech.reglages.v3") ?? "{}").tutoVu === true;
   } catch {
     return false;
+  }
+}
+
+/** Défi du jour : un seul par personne et par jour (enregistré sur cet appareil). */
+const cleDefi = (id: string) => `isitech.defi.${id}`;
+const aujourdhui = () => new Date().toLocaleDateString("sv-SE");
+function lireDefi(id: string) {
+  try {
+    return window.localStorage.getItem(cleDefi(id)) === aujourdhui();
+  } catch {
+    return false;
+  }
+}
+function marquerDefi(id: string) {
+  try {
+    window.localStorage.setItem(cleDefi(id), aujourdhui());
+  } catch {
+    /* stockage indisponible */
   }
 }

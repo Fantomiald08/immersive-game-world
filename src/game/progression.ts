@@ -2,15 +2,15 @@
 export type Quete = { id: string; titre: string; xp: number };
 export const QUETES: Quete[] = [
   { id: "reseau", titre: "Entrer sur le réseau Isitech", xp: 10 },
-  { id: "quiz", titre: "Terminer un quiz", xp: 15 },
-  { id: "monstre", titre: "Vaincre un monstre de la salle serveur", xp: 15 },
+  { id: "quiz", titre: "Terminer un combat (quiz)", xp: 15 },
+  { id: "monstre", titre: "Gagner un combat", xp: 15 },
   { id: "explorer", titre: "Visiter 3 salles différentes", xp: 10 },
 ];
 export const BADGES = [
   { id: "depot", nom: "Premier cours", desc: "Déposer un cours sur le réseau", icone: "📥" },
-  { id: "quiz", nom: "Premier quiz", desc: "Terminer un quiz", icone: "❓" },
-  { id: "parfait", nom: "Sans faute", desc: "Réussir un quiz avec 100 %", icone: "💯" },
-  { id: "chasseur", nom: "Chasseur de virus", desc: "Vaincre un monstre", icone: "🦠" },
+  { id: "quiz", nom: "Premier combat", desc: "Terminer un combat (quiz)", icone: "❓" },
+  { id: "parfait", nom: "Sans faute", desc: "Gagner un combat sans aucune erreur", icone: "💯" },
+  { id: "chasseur", nom: "Chasseur de virus", desc: "Gagner un combat", icone: "🦠" },
   { id: "explorateur", nom: "Tour de l'école", desc: "Visiter 10 salles différentes", icone: "🧭" },
   { id: "fidele", nom: "Fidèle", desc: "Venir 3 jours de suite", icone: "🔥" },
 ];

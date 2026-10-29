@@ -27,9 +27,9 @@ export function Tuto({ onFin }: { onFin: () => void }) {
         "Écris dans la barre du bas pour afficher une bulle de 4 secondes. Le bouton 📌 Statut affiche un message au-dessus de ta tête pendant 5 minutes. ✉ Messages permet d'écrire en privé à un élève connecté. Le tableau d'affichage de l'accueil donne les annonces et ton journal.",
     },
     {
-      titre: "Le réseau Isitech",
+      titre: "Deux réseaux : cours et combat",
       texte:
-        "Utilise un ordinateur (dans les salles et à l'accueil), puis « Entrer sur le réseau Isitech » : tu peux y déposer des cours de tout type, créer des catégories et voir l'activité de la classe.",
+        "Les ordinateurs (accueil, salles) ouvrent le réseau COURS : dépôt de cours, catégories, quiz. Les PC gaming (salles Serveurs, Développeur et Labo) ouvrent le réseau COMBAT : choisis un quiz, une difficulté, et affronte un monstre pour gagner de l'XP.",
     },
     {
       titre: "Progresser",

@@ -7,7 +7,15 @@ export type Interaction = {
   h: number;
   icone: string;
   nom: string;
-  type: "porte" | "ordinateur" | "classement" | "tableau" | "info" | "personnage" | "monstre";
+  type:
+    | "porte"
+    | "ordinateur"
+    | "pcgamer"
+    | "classement"
+    | "tableau"
+    | "info"
+    | "personnage"
+    | "monstre";
 };
 
 /** Tout ce avec quoi on peut interagir dans une zone (portes, ordinateurs, personnages, monstres...). Sert à la carte. */
@@ -49,7 +57,8 @@ export function interactions(z: Zone): Interaction[] {
 
 export const LEGENDE: Array<[string, string]> = [
   ["🚪", "Porte"],
-  ["💻", "Ordinateur"],
+  ["💻", "Ordinateur (cours)"],
+  ["🎮", "PC gaming (combats)"],
   ["🏆", "Classement"],
   ["📋", "Tableau d'affichage"],
   ["💬", "Personnage"],

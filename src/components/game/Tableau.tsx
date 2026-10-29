@@ -22,7 +22,7 @@ export function Tableau({
   const [onglet, setOnglet] = useState<Onglet>("annonces");
   const { data } = useReseau();
   const qc = useQueryClient();
-  const admin = estAdmin(moi.pseudo);
+  const admin = estAdmin(moi);
   const [titre, setTitre] = useState(""),
     [corps, setCorps] = useState(""),
     [erreur, setErreur] = useState(""),

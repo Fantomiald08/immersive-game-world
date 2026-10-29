@@ -39,6 +39,25 @@ const Bureau = ({ W, H, o }: P, bois = o.c ?? BOIS) => (
 );
 
 const ART: Record<string, (p: P) => ReactNode> = {
+  pcgamer: ({ W, H }) => (
+    <>
+      {ombre(W, H)}
+      {bx(0, H - 14, W, 9, "#2b2250")}
+      {bx(1, H - 6, W - 2, 6, "#1a1438")}
+      {rc(2, H - 5, W - 4, 1, "#a35cff")}
+      {bx(3, H - 30, W - 6, 15, "#17122e")}
+      {rc(5, H - 28, W - 10, 11, "#5b2fd1")}
+      {rc(5, H - 28, W - 10, 4, "#8a5cff")}
+      {rc(7, H - 22, 8, 1, "#ffd166")}
+      {rc(7, H - 20, 12, 1, "#4fd1c5")}
+      {rc(W - 14, H - 24, 6, 5, "#ff5c8a")}
+      {bx(W / 2 - 2, H - 15, 4, 2, "#17122e")}
+      {bx(5, H - 13, W - 10, 3, "#1a1438")}
+      {rc(6, H - 12, W - 12, 1, "#4fd1c5")}
+      {rc(6, H - 11, W - 16, 1, "#ff5c8a")}
+      {bx(W - 8, H - 12, 5, 3, "#a35cff")}
+    </>
+  ),
   poste: (p) => {
     const { W, H } = p;
     return (
