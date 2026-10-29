@@ -9,3 +9,4 @@
 - [x] Étape 8 — Finitions
 - [x] Tutoriel au premier lancement
 - [ ] Import de PDF pour les cours
+- [ ] Déployer la fonction generer-quiz telle quelle
