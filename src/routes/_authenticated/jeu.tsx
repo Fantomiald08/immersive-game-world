@@ -18,6 +18,10 @@ import { BANQUE, genererQuestions, melange, type Question } from "@/game/quiz";
 import { ajouterXp, useHeros, useMonProfil, useRafraichirProfil } from "@/game/profil";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { genererQuizIA, lireFichierIA } from "@/game/ia.functions";
+import { extraireTexte, versDataUrl } from "@/game/fichiers";
+import { useRef } from "react";
 
 export const Route = createFileRoute("/_authenticated/jeu")({
   head: () => ({
@@ -33,7 +37,7 @@ export const Route = createFileRoute("/_authenticated/jeu")({
 
 type Modal =
   | { t: "profil"; id: string } | { t: "cours"; c: Cours } | { t: "depot" } | { t: "liste" } | { t: "heros" }
-  | { t: "texte"; nom: string; texte: string }
+  | { t: "texte"; nom: string; texte: string } | { t: "charge"; nom: string }
   | { t: "combat"; nom: string; emoji: string; questions: Question[]; xp: number };
 
 const PROF_APP = apparenceDepuis("professeur-isitech");
@@ -61,6 +65,18 @@ function Jeu() {
     setScene(v);
   };
 
+  const quizIA = useServerFn(genererQuizIA);
+  const cacheQuiz = useRef(new Map<string, Question[]>());
+  const lancerCombat = async (c: Cours, nom: string, emoji: string) => {
+    setModal({ t: "charge", nom });
+    let qs = cacheQuiz.current.get(c.id);
+    if (!qs) {
+      try { const r = await quizIA({ data: { texte: `${c.title}\n\n${c.text}`, n: 6 } }); if (r.questions.length >= 3) qs = r.questions; } catch { /* repli local */ }
+      if (qs) cacheQuiz.current.set(c.id, qs);
+    }
+    setModal({ t: "combat", nom, emoji, questions: melange(qs ?? genererQuestions(c.text, 6)), xp: 30 });
+  };
+
   const pnjs = useMemo<Pnj[]>(() => {
     if (scene === "hall") return [{ id: "accueil", ...{ x: 10, y: 4.9 }, nom: "Mme Accueil", label: "Parler à l'accueil", apparence: ACCUEIL_APP,
       action: () => setModal({ t: "texte", nom: "Mme Accueil", texte: "Bienvenue à Isitech ! En haut à gauche, la salle de classe : chaque élève qui dépose un cours y est représenté par un PNJ. En haut à droite, la salle serveur : les monstres y posent des questions sur vos cours. À droite, la cafétéria : on y consulte les profils de toute la classe." }) }];
@@ -75,7 +91,7 @@ function Jeu() {
       ...cours.slice(0, PLACES_MONSTRES.length - 1).map((c, i) => {
         const emoji = EMOJIS_MONSTRES[i % EMOJIS_MONSTRES.length]!, nom = `Boss ${c.title.slice(0, 14)}`;
         return { id: c.id, ...PLACES_MONSTRES[i + 1]!, nom, label: `Combattre ${nom}`, emoji,
-          action: () => setModal({ t: "combat", nom, emoji, questions: genererQuestions(c.text, 6), xp: 30 }) };
+          action: () => { void lancerCombat(c, nom, emoji); } };
       }),
     ];
     return [
@@ -135,6 +151,7 @@ function Jeu() {
         </Fenetre>
       )}
       {modal?.t === "depot" && <Fenetre titre="Déposer un cours" onFermer={fermer}><Depot onOk={async (c) => { await deposerCours(p.id, c); await qc.invalidateQueries({ queryKey: ["cours"] }); setModal({ t: "liste" }); }} /></Fenetre>}
+      {modal?.t === "charge" && <Fenetre titre={modal.nom} onFermer={fermer}><p className="anim-bob text-center text-xl">🤖 L'IA prépare les questions du boss…</p></Fenetre>}
       {modal?.t === "combat" && (
         <Fenetre titre="Combat !" onFermer={fermer} large>
           <Combat monstre={modal.nom} emoji={modal.emoji} questions={modal.questions} moi={p} gainXp={modal.xp}
@@ -164,21 +181,43 @@ function Heros({ onVoir }: { onVoir: (id: string) => void }) {
 
 function Depot({ onOk }: { onOk: (c: { title: string; type: string; text: string }) => Promise<void> }) {
   const [title, setTitle] = useState(""), [type, setType] = useState("Cours"), [text, setText] = useState("");
-  const [err, setErr] = useState(""), [envoi, setEnvoi] = useState(false);
+  const [err, setErr] = useState(""), [envoi, setEnvoi] = useState(false), [lecture, setLecture] = useState("");
+  const lireIA = useServerFn(lireFichierIA);
+  const importer = async (f: File) => {
+    setErr(""); setLecture(`Lecture de ${f.name}…`);
+    try {
+      if (f.size > 10 * 1024 * 1024) throw new Error("Fichier trop lourd (max 10 Mo).");
+      let r = await extraireTexte(f);
+      if ("besoinIA" in r) {
+        setLecture(`L'IA lit ${f.name}…`);
+        const ia = await lireIA({ data: { dataUrl: await versDataUrl(f), mime: f.type || "application/pdf", nom: f.name } });
+        if (ia.erreur || ia.texte.length < 30) throw new Error(ia.erreur ?? "Aucun texte trouvé dans ce fichier.");
+        r = { texte: ia.texte };
+      }
+      setText((t) => (t ? t + "\n\n" : "") + r.texte);
+      if (!title) setTitle(f.name.replace(/\.[^.]+$/, "").slice(0, 80));
+    } catch (e) { setErr(e instanceof Error ? e.message : "Lecture impossible."); }
+    setLecture("");
+  };
   return (
     <form className="space-y-2" onSubmit={async (e) => {
       e.preventDefault();
       if (!title.trim() || text.trim().length < 30) { setErr("Un titre et au moins 30 caractères de texte."); return; }
       setEnvoi(true);
-      try { await onOk({ title: title.trim().slice(0, 80), type, text: text.trim().slice(0, 8000) }); } catch { setErr("Envoi impossible, réessaie."); setEnvoi(false); }
+      try { await onOk({ title: title.trim().slice(0, 80), type, text: text.trim().slice(0, 12000) }); } catch { setErr("Envoi impossible, réessaie."); setEnvoi(false); }
     }}>
       <input className="pixel-input" placeholder="Titre (ex : Le protocole DHCP)" value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} />
       <select className="pixel-input" value={type} onChange={(e) => setType(e.target.value)}>
         {["Cours", "Fiche", "TP", "Résumé"].map((t) => <option key={t}>{t}</option>)}
       </select>
-      <textarea className="pixel-input" rows={8} placeholder="Colle le texte de ton cours : les monstres de la salle serveur en tireront leurs questions." value={text} maxLength={8000} onChange={(e) => setText(e.target.value)} />
+      <label className="pixel-btn block cursor-pointer text-center">
+        📂 Importer un fichier (PDF, Word, PowerPoint, image, texte…)
+        <input type="file" className="hidden" disabled={!!lecture} onChange={(e) => { const f = e.target.files?.[0]; if (f) void importer(f); e.target.value = ""; }} />
+      </label>
+      {lecture && <p className="anim-bob">{lecture}</p>}
+      <textarea className="pixel-input" rows={8} placeholder="…ou colle le texte de ton cours : l'IA en tirera les questions des monstres." value={text} maxLength={12000} onChange={(e) => setText(e.target.value)} />
       {err && <p className="text-destructive">{err}</p>}
-      <button className="pixel-btn" disabled={envoi}>Déposer</button>
+      <button className="pixel-btn" disabled={envoi || !!lecture}>Déposer</button>
     </form>
   );
 }

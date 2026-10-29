@@ -18,4 +18,4 @@
 - Decor objects are data (position, type, collision) so rooms are easy to extend.
 - Game pages live under src/routes/_authenticated; /connexion is the public auth page.
 - Player positions use Realtime broadcast/presence only, never stored in the database.
-- XP only changes through the public.ajouter_xp RPC (capped per call); combat quizzes are generated client-side from course text (src/game/quiz.ts) — no AI key needed.
+- XP only changes through the public.ajouter_xp RPC (capped per call). Boss quizzes come from the AI gateway via src/game/ia.functions.ts (authenticated server fn), falling back to src/game/quiz.ts locally; course files are parsed in the browser (src/game/fichiers.ts) and only unreadable files (images, scans) go to the AI.
