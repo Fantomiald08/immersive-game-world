@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
-import { lovable } from "@/integrations/lovable";
 
 export const Route = createFileRoute("/connexion")({
   ssr: false,
@@ -49,11 +48,10 @@ function Connexion() {
     } finally { setBusy(false); }
   };
 
-  const google = async () => {
+    const google = async () => {
     const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/connexion" });
     if (r.error) setMsg("Connexion Google impossible.");
   };
-
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
       <form onSubmit={submit} className="pixel-box w-full max-w-md space-y-3 p-6">
