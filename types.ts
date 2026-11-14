@@ -1,133 +1,244 @@
-import type { Direction } from "@/game/apparence";
-export type { Direction };
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
 
-export type Pt = { x: number; y: number };
-export type Rect = Pt & { w: number; h: number };
-export type Arrivee = Pt & { dir: Direction };
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.18"
+  }
+  public: {
+    Tables: {
+      courses: {
+        Row: {
+          author_id: string
+          created_at: string
+          id: string
+          npc: string
+          text: string
+          title: string
+          type: string
+        }
+        Insert: {
+          author_id: string
+          created_at?: string
+          id?: string
+          npc?: string
+          text?: string
+          title: string
+          type?: string
+        }
+        Update: {
+          author_id?: string
+          created_at?: string
+          id?: string
+          npc?: string
+          text?: string
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          apparence: Json
+          avatar: string
+          badges: string[]
+          bio: string
+          classe: string
+          id: string
+          last: string
+          niveau: number
+          personnage_cree: boolean
+          pseudo: string
+          stats: Json
+          streak: number
+          titre: string
+          updated_at: string
+          xp: number
+        }
+        Insert: {
+          apparence?: Json
+          avatar?: string
+          badges?: string[]
+          bio?: string
+          classe?: string
+          id: string
+          last?: string
+          niveau?: number
+          personnage_cree?: boolean
+          pseudo?: string
+          stats?: Json
+          streak?: number
+          titre?: string
+          updated_at?: string
+          xp?: number
+        }
+        Update: {
+          apparence?: Json
+          avatar?: string
+          badges?: string[]
+          bio?: string
+          classe?: string
+          id?: string
+          last?: string
+          niveau?: number
+          personnage_cree?: boolean
+          pseudo?: string
+          stats?: Json
+          streak?: number
+          titre?: string
+          updated_at?: string
+          xp?: number
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      ajouter_xp: {
+        Args: { montant: number }
+        Returns: {
+          niveau: number
+          xp: number
+        }[]
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
 
-export const SALLES = [
-  "direction",
-  "commerce",
-  "cafe",
-  "soleil",
-  "wc",
-  "serveurs",
-  "developpeur",
-  "referent",
-  "labo",
-  "jupiter",
-  "pedagogie",
-  "venus",
-  "lune",
-  "mercure",
-  "saturne",
-  "terre",
-  "uranus",
-  "mars",
-] as const;
-export type SalleId = (typeof SALLES)[number];
-export type ZoneId = "accueil" | "couloir1" | "couloir2" | "aile" | SalleId;
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-export type TypeMonstre = "virus" | "malware" | "bug" | "ransomware";
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
-export type Kind =
-  | "poste"
-  | "bureau"
-  | "grandbureau"
-  | "table"
-  | "chaise"
-  | "casiers"
-  | "plante"
-  | "canape"
-  | "comptoir"
-  | "machinecafe"
-  | "distributeur"
-  | "frigo"
-  | "baie"
-  | "etagere"
-  | "armoire"
-  | "banc"
-  | "tapis"
-  | "lavabo"
-  | "cabine"
-  | "poubelle"
-  | "imprimante"
-  | "tableau"
-  | "fenetre"
-  | "horloge"
-  | "affiche"
-  | "planete"
-  | "ecranmur"
-  | "panneau"
-  | "logo"
-  | "ascenseur"
-  | "entree"
-  | "fleche"
-  | "porteH"
-  | "porteV"
-  | "clim"
-  | "miroir"
-  | "lampadaire"
-  | "tableauHeros"
-  | "pcgamer";
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never) = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
 
-/** Ce qui se passe quand on appuie sur Espace devant un objet. */
-export type Agir =
-  | { k: "porte"; vers: ZoneId; arrivee: Arrivee; nom: string }
-  | { k: "terminal" }
-  | { k: "combat" }
-  | { k: "classement" }
-  | { k: "tableau" }
-  | { k: "texte"; titre: string; texte: string };
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never) = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
 
-export type Objet = {
-  kind: Kind;
-  /** Case de départ de l'emprise (là où l'objet bloque le passage). */
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  /** Hauteur dessinée au-dessus de l'emprise (en cases), et en dessous pour les murs du bas. */
-  hh: number;
-  hb: number;
-  solide: boolean;
-  plat: boolean;
-  c?: string;
-  c2?: string;
-  v?: string;
-  label?: string;
-  agir?: Agir;
-};
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never) = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
 
-export type PnjDef = {
-  id: string;
-  x: number;
-  y: number;
-  dir: Direction;
-  seed: string;
-  nom: string;
-  texte?: string;
-  monstre?: TypeMonstre;
-};
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never) = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
 
-export type Sortie = Rect & { vers: ZoneId; arrivee: Arrivee };
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never) = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
 
-export type SolType = "parquet" | "carrelage" | "damier" | "moquette" | "lino";
-export type Sol = { type: SolType; c1: string; c2: string };
-export type Theme = { sol: Sol; mur: string; murBas: string; trait: string; plinthe: string };
-
-export type Zone = {
-  id: ZoneId;
-  nom: string;
-  l: number;
-  h: number;
-  murs: { haut: number; bas: number; gauche: number; droite: number };
-  ouvertures: Rect[];
-  theme: Theme;
-  objets: Objet[];
-  pnjs: PnjDef[];
-  sorties: Sortie[];
-  depart: Arrivee;
-  /** Pièce dont on dépend pour le plan (la zone elle-même si c'est un couloir). */
-  lieu: ZoneId;
-};
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const
