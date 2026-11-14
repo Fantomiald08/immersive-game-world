@@ -1,0 +1,30 @@
+ISITECH WORLD V6 — IA adaptative + mode histoire
+================================================
+
+CE QUI CHANGE
+  1) Combats plus exigeants, adaptés à TON niveau
+     - Le jeu mesure ta précision (sauvegardée sur ton appareil).
+     - Un expert affronte un monstre plus solide (PV), plus rapide (chrono) et plus dangereux (dégâts).
+     - Un débutant a un monstre légèrement moins redoutable.
+     - Les questions suivent ton niveau : un expert tombe sur des questions plus difficiles.
+     - Le Ransomware apprend tes habitudes : il bloque plus souvent les réponses que tu choisis le plus.
+     - L'écran du réseau combat affiche l'adaptation (PV ×…, chrono ×…, dégâts ×…).
+  2) Mode histoire
+     - 3 chapitres : « Le signal étrange », « Le serveur infecté », « Le Ransomware ».
+     - 8 missions : parler à l'hôtesse, aller dans la salle Serveurs, lire le tableau d'affichage,
+       gagner des combats (avec de bonnes réponses, en difficulté élevée), déposer un cours…
+     - Chaque mission a son dialogue. Chaque chapitre a sa récompense en XP.
+     - Onglet 📖 Histoire dans le tableau d'affichage (à l'accueil) : chapitre, avancement, missions.
+
+INSTALLATION (ne remplace PAS ton fichier .env)
+  1. Copie les dossiers "src", "docs" et le fichier roadmap.md dans ton projet.
+  2. Dans le terminal du projet : bun run dev (puis ouvre l'adresse affichée).
+  3. Pour tester : fais une mission (parler à l'hôtesse), puis regarde l'onglet 📖 Histoire du tableau.
+
+À SAVOIR
+  - "IA" ici = une intelligence adaptative réglée par des règles (pas un modèle de langage). Elle est
+    entièrement testée et ne demande aucune clé.
+  - L'histoire et les statistiques de combat sont sauvegardées SUR CET APPAREIL. Elles ne suivent pas
+    le compte d'un appareil à l'autre (prochaine étape : la base de données).
+  - Les questions générées par une vraie IA (pour les boss) restent disponibles via l'éditeur de quiz.
+  - Tests : 263 vérifications automatiques, toutes réussies. Build de production : OK.
