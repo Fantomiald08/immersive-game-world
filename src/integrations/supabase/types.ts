@@ -20,6 +20,7 @@ export type Database = {
           created_at: string
           id: string
           npc: string
+          pdf_path: string | null
           text: string
           title: string
           type: string
@@ -29,6 +30,7 @@ export type Database = {
           created_at?: string
           id?: string
           npc?: string
+          pdf_path?: string | null
           text?: string
           title: string
           type?: string
@@ -38,6 +40,7 @@ export type Database = {
           created_at?: string
           id?: string
           npc?: string
+          pdf_path?: string | null
           text?: string
           title?: string
           type?: string
