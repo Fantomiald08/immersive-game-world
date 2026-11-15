@@ -113,6 +113,7 @@ export type Database = {
           xp: number
         }[]
       }
+      est_joueur: { Args: { _uid: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

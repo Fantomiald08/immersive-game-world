@@ -36,6 +36,13 @@
       "when": 1794769170311,
       "tag": "0004_cours_pdf_lecture_liee",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794769277619,
+      "tag": "0005_lecture_reservee_joueurs",
+      "breakpoints": true
     }
   ]
 }
