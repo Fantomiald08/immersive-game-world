@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 
 export const Route = createFileRoute("/connexion")({
   ssr: false,
@@ -48,11 +49,8 @@ function Connexion() {
   };
 
   const google = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin + "/connexion" },
-    });
-    if (error) setMsg("Connexion Google impossible : vérifie la configuration Google dans Supabase.");
+    const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/connexion" });
+    if (r.error) setMsg("Connexion Google impossible.");
   };
 
   return (
