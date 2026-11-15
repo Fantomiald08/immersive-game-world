@@ -56,7 +56,7 @@ function Creation() {
     <div className="mx-auto grid max-w-4xl gap-4 p-4 md:grid-cols-[280px_1fr]">
       <div className="pixel-box flex flex-col items-center gap-3 p-4">
         <h1 className="font-pixel text-xs text-accent">Ton personnage</h1>
-        <div className="tile-tile flex h-64 w-full items-center justify-center border-4 border-border">
+        <div className="bg-[#f0ddb6] flex h-64 w-full items-center justify-center border-4 border-border">
           <Personnage a={a} dir={DIRS[dir] ?? "bas"} marche taille={180} pseudo={p.pseudo} niveau={p.niveau} />
         </div>
         <div className="flex gap-2">
