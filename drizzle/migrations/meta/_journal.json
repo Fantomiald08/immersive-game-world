@@ -29,6 +29,13 @@
       "when": 1793000498267,
       "tag": "0003_cours_pdf",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794769170311,
+      "tag": "0004_cours_pdf_lecture_liee",
+      "breakpoints": true
     }
   ]
 }
