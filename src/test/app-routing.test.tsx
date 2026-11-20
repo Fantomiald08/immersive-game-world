@@ -14,4 +14,11 @@ describe("App routing", () => {
 
     expect(matches.at(-1)?.routeId).not.toBe(rootRouteId);
   });
+
+  it("connaît les deux modes de jeu : /jeu (multijoueur) et /histoire (solo)", () => {
+    const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
+
+    for (const chemin of ["/jeu", "/histoire"])
+      expect(router.matchRoutes(chemin).at(-1)?.routeId).not.toBe(rootRouteId);
+  });
 });
