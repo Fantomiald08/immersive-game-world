@@ -5,7 +5,7 @@ import type { Profil } from "./profil";
 import { SalleClient, type Distant, type Etat, type Msg, type Statut } from "./salle";
 
 /** Joue dans une zone : positions, bulles de discussion et statuts des autres joueurs (protocole dans salle.ts). */
-export function useSalle(zone: ZoneId, moi: Profil, lireEtat: () => Etat) {
+export function useSalle(zone: ZoneId, moi: Profil, lireEtat: () => Etat, actif = true) {
   const [, rendre] = useState(0);
   const client = useRef<SalleClient | null>(null);
   const lire = useRef(lireEtat);
@@ -14,6 +14,8 @@ export function useSalle(zone: ZoneId, moi: Profil, lireEtat: () => Etat) {
   const cleApp = JSON.stringify(moi.apparence);
 
   useEffect(() => {
+    // Mode solo : aucun canal Supabase, aucun joueur fantôme.
+    if (!actif) return;
     const canal = supabase.channel(`salle:${zone}`, { config: { broadcast: { self: false } } });
     const c = new SalleClient(
       { id: moi.id, pseudo: moi.pseudo, niveau: moi.niveau, apparence: moi.apparence },
@@ -45,7 +47,7 @@ export function useSalle(zone: ZoneId, moi: Profil, lireEtat: () => Etat) {
       }, 200);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [zone, moi.id, moi.pseudo, moi.niveau, cleApp]);
+  }, [actif, zone, moi.id, moi.pseudo, moi.niveau, cleApp]);
 
   const envoyerEtat = useCallback((e: Etat) => client.current?.envoyerEtat(e), []);
   const dire = useCallback((t: string) => client.current?.dire(t) ?? false, []);
@@ -83,6 +85,7 @@ export function useEcole(
   moi: Profil,
   zone: ZoneId,
   surMessage?: (pseudo: string, texte: string) => void,
+  actif = true,
 ) {
   const [roster, setRoster] = useState<Present[]>([]);
   const [conv, setConv] = useState<Record<string, Conversation>>({});
@@ -106,6 +109,8 @@ export function useEcole(
   }, [moi.id, moi.pseudo, moi.niveau]);
 
   useEffect(() => {
+    // Mode solo : pas de présence ni de messages privés.
+    if (!actif) return;
     const c = supabase.channel("ecole", {
       config: { presence: { key: moi.id }, broadcast: { self: false } },
     });
@@ -142,15 +147,16 @@ export function useEcole(
       void supabase.removeChannel(c);
       canal.current = null;
     };
-  }, [moi.id, suivre]);
+  }, [actif, moi.id, suivre]);
 
   // Changement de zone : on met la présence à jour, sans dépasser le rythme autorisé
   useEffect(() => {
     zoneRef.current = zone;
+    if (!actif) return;
     if (minuteur.current) clearTimeout(minuteur.current);
     const attente = Math.max(0, DELAI_TRACK - (Date.now() - dernierTrack.current));
     minuteur.current = setTimeout(suivre, attente);
-  }, [zone, suivre]);
+  }, [actif, zone, suivre]);
 
   const enLigne = useCallback((id: string) => roster.some((p) => p.id === id), [roster]);
 
