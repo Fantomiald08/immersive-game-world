@@ -11,8 +11,6 @@ export const Route = createFileRoute("/connexion")({
       { name: "description", content: "Connecte-toi ou crée ton compte pour entrer dans l'école Isitech World." },
       { property: "og:title", content: "Connexion — Isitech World" },
       { property: "og:description", content: "Entre dans l'école Isitech en multijoueur." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Connexion,
@@ -25,8 +23,8 @@ function Connexion() {
   const [msg, setMsg] = useState(""), [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => { if (data.session) nav({ to: "/jeu" }); });
-    const { data: sub } = supabase.auth.onAuthStateChange((e, s) => { if (e === "SIGNED_IN" && s) nav({ to: "/jeu" }); });
+    supabase.auth.getSession().then(({ data }) => { if (data.session) nav({ to: "/" }); });
+    const { data: sub } = supabase.auth.onAuthStateChange((e, s) => { if (e === "SIGNED_IN" && s) nav({ to: "/" }); });
     return () => sub.subscription.unsubscribe();
   }, [nav]);
 
@@ -51,8 +49,11 @@ function Connexion() {
   };
 
   const google = async () => {
-    const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/connexion" });
-    if (r.error) setMsg("Connexion Google impossible.");
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin,
+    });
+    const error = result.error;
+    if (error) setMsg("Connexion Google impossible : vérifie que Google est activé dans Lovable Cloud (Users → Auth settings).");
   };
 
   return (

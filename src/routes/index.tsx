@@ -1,28 +1,49 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { Chargement } from "@/components/game/Chargement";
+import { MenuPrincipal } from "@/components/game/MenuPrincipal";
 import { Personnage } from "@/components/game/Personnage";
 import { DEFAUT } from "@/game/apparence";
+import { useSession } from "@/hooks/use-session";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Isitech World — Le jeu multijoueur de l'école" },
-      { name: "description", content: "Balade-toi dans l'école Isitech avec ta classe de BTS SIO SISR : cours, quiz et combats." },
+      {
+        name: "description",
+        content:
+          "Balade-toi dans l'école Isitech avec ta classe de BTS SIO SISR : cours, quiz et combats.",
+      },
       { property: "og:title", content: "Isitech World" },
       { property: "og:description", content: "Un jeu 2D multijoueur dans l'école Isitech." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Accueil,
 });
 
+/** Connecté : menu principal. Pas connecté : page d'accueil avec « Press start ». */
 function Accueil() {
+  const { pret, session } = useSession();
+  if (!pret) return <Chargement plein texte="Connexion…" />;
+  return session ? <MenuPrincipal /> : <Vitrine />;
+}
+
+function Vitrine() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-4 text-center">
+    <div className="anim-fade-in flex min-h-screen flex-col items-center justify-center gap-6 p-4 text-center">
       <Personnage a={DEFAUT} marche taille={140} />
-      <h1 className="font-pixel text-3xl leading-snug text-primary md:text-5xl">ISITECH<br /><span className="text-accent">WORLD</span></h1>
-      <p className="max-w-md text-2xl text-muted-foreground">Retrouve ta classe dans les couloirs de l'école, partage tes cours et affronte les monstres de la salle serveur.</p>
-      <Link to="/connexion" className="pixel-btn anim-blink">▶ PRESS START</Link>
+      <h1 className="font-pixel text-3xl leading-snug text-primary md:text-5xl">
+        ISITECH
+        <br />
+        <span className="text-accent">WORLD</span>
+      </h1>
+      <p className="max-w-md text-2xl text-muted-foreground">
+        Retrouve ta classe dans les couloirs de l'école, partage tes cours et affronte les monstres
+        de la salle serveur.
+      </p>
+      <Link to="/connexion" className="pixel-btn anim-blink">
+        ▶ PRESS START
+      </Link>
     </div>
   );
 }
