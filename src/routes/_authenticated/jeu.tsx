@@ -13,15 +13,12 @@ import { Plan } from "@/components/game/Plan";
 import { Tableau } from "@/components/game/Tableau";
 import { Messages } from "@/components/game/Messages";
 import { Tuto } from "@/components/game/Tuto";
-import { EnigmeFenetre } from "@/components/game/Enigme";
 import {
   progresser,
   lireHistoire,
   ecrireHistoire,
   type Evenement as EvHistoire,
   type EtatHistoire,
-  enigmeEnAttente,
-  type Enigme,
 } from "@/game/histoire";
 import { enregistrerCombat, ecrirePerf, lirePerf } from "@/game/ia";
 import { estAdmin } from "@/game/admins";
@@ -45,6 +42,8 @@ export const Route = createFileRoute("/_authenticated/jeu")({
       { name: "description", content: "Promène-toi dans l'école Isitech avec ta classe." },
       { property: "og:title", content: "L'école — Isitech World" },
       { property: "og:description", content: "Le jeu multijoueur de la classe BTS SIO SISR." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Jeu,
@@ -58,8 +57,7 @@ type Fen =
   | { k: "plan" }
   | { k: "tableau" }
   | { k: "messages"; id: string | null }
-  | { k: "tuto" }
-  | { k: "enigme"; enigme: Enigme };
+  | { k: "tuto" };
 
 const EMOTES = ["👋", "😂", "💃", "👏"];
 
@@ -158,7 +156,6 @@ function Partie({ moi }: { moi: Profil }) {
           () => annoncer(`🏅 Badge débloqué : ${gains.badges.join(", ")}`),
           gains.xp > 0 ? 1800 : 0,
         );
-      for (const id of gains.badgesIds) histFn.current({ k: "badge", id });
     },
     [annoncer, gagnerXp, moi.id],
   );
@@ -222,16 +219,12 @@ function Partie({ moi }: { moi: Profil }) {
       jouer("ok");
       if (c.k === "pnj") {
         const n = c.p;
-        const enigme = enigmeEnAttente(histRef.current, n.id);
-        if (enigme) {
-          setFen({ k: "enigme", enigme });
-          return;
-        }
         setFen({ k: "texte", titre: n.nom, texte: n.texte ?? "..." });
         histFn.current({ k: "parler", pnj: n.id });
         return;
       }
-      const a = c.o.agir!;
+      const a = c.o.agir;
+      if (!a) return;
       switch (a.k) {
         case "porte":
           jouer("porte");
@@ -594,13 +587,6 @@ function Partie({ moi }: { moi: Profil }) {
         />
       )}
       {fen?.k === "tuto" && <Tuto onFin={finTuto} />}
-      {fen?.k === "enigme" && (
-        <EnigmeFenetre
-          enigme={fen.enigme}
-          onFermer={fermer}
-          onRepondu={(bonne) => histFn.current({ k: "enigme", id: fen.enigme.id, bonne })}
-        />
-      )}
       {dialogue && !terminal && fen === null && (
         <Fenetre titre={dialogue.titre} onFermer={() => setDialogue(null)}>
           <p className="text-xl">{dialogue.texte}</p>

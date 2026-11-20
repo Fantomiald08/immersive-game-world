@@ -11,6 +11,8 @@ export const Route = createFileRoute("/connexion")({
       { name: "description", content: "Connecte-toi ou crée ton compte pour entrer dans l'école Isitech World." },
       { property: "og:title", content: "Connexion — Isitech World" },
       { property: "og:description", content: "Entre dans l'école Isitech en multijoueur." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Connexion,

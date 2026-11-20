@@ -1,4 +1,5 @@
 # Isitech World — feuille de route
+- [x] Corriger le chargement de /jeu : retirer les références d'énigmes non implémentées et conserver les copies d'import incomplètes hors du code actif.
 - [x] V2 : comptes, personnage, temps réel, quiz, combats, XP
 - [x] V3 : carte de l'école, personnages chibi, réseau Isitech, paramètres, tutoriel
 - [x] V4 : déplacement sans délai, temps réel ~20 joueurs, carte interactive, statut 5 min, tableau d'affichage, messages privés

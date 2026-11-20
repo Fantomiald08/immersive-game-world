@@ -9,6 +9,8 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "Balade-toi dans l'école Isitech avec ta classe de BTS SIO SISR : cours, quiz et combats." },
       { property: "og:title", content: "Isitech World" },
       { property: "og:description", content: "Un jeu 2D multijoueur dans l'école Isitech." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Accueil,
