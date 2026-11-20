@@ -197,6 +197,12 @@
 @keyframes bob { 50% { transform: translateY(-4px); } }
 @keyframes blink { 50% { opacity: 0; } }
 @keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rise-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes spin-steps { to { transform: rotate(360deg); } }
+@utility anim-fade-in { animation: fade-in .4s ease-out backwards; @media (prefers-reduced-motion: reduce) { animation: none; } }
+@utility anim-rise-in { animation: rise-in .45s ease-out backwards; @media (prefers-reduced-motion: reduce) { animation: none; } }
+@utility anim-spin-steps { animation: spin-steps .9s steps(8) infinite; @media (prefers-reduced-motion: reduce) { animation: none; } }
 @utility anim-bob { animation: bob 1s steps(2) infinite; }
 @utility anim-blink { animation: blink 1s steps(1) infinite; }
 @utility anim-shake { animation: shake .3s 2; }

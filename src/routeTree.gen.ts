@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as ConnexionRouteImport } from './routes/connexion'
+import { Route as AuthenticatedHistoireRouteImport } from './routes/_authenticated/histoire'
 import { Route as AuthenticatedJeuRouteImport } from './routes/_authenticated/jeu'
 import { Route as AuthenticatedPersonnageRouteImport } from './routes/_authenticated/personnage'
 
@@ -29,6 +30,11 @@ const ConnexionRoute = ConnexionRouteImport.update({
   path: '/connexion',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedHistoireRoute = AuthenticatedHistoireRouteImport.update({
+  id: '/histoire',
+  path: '/histoire',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedJeuRoute = AuthenticatedJeuRouteImport.update({
   id: '/jeu',
   path: '/jeu',
@@ -43,12 +49,14 @@ const AuthenticatedPersonnageRoute = AuthenticatedPersonnageRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/connexion': typeof ConnexionRoute
+  '/histoire': typeof AuthenticatedHistoireRoute
   '/jeu': typeof AuthenticatedJeuRoute
   '/personnage': typeof AuthenticatedPersonnageRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/connexion': typeof ConnexionRoute
+  '/histoire': typeof AuthenticatedHistoireRoute
   '/jeu': typeof AuthenticatedJeuRoute
   '/personnage': typeof AuthenticatedPersonnageRoute
 }
@@ -57,19 +65,21 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/connexion': typeof ConnexionRoute
+  '/_authenticated/histoire': typeof AuthenticatedHistoireRoute
   '/_authenticated/jeu': typeof AuthenticatedJeuRoute
   '/_authenticated/personnage': typeof AuthenticatedPersonnageRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/connexion' | '/jeu' | '/personnage'
+  fullPaths: '/' | '/connexion' | '/histoire' | '/jeu' | '/personnage'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/connexion' | '/jeu' | '/personnage'
+  to: '/' | '/connexion' | '/histoire' | '/jeu' | '/personnage'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/connexion'
+    | '/_authenticated/histoire'
     | '/_authenticated/jeu'
     | '/_authenticated/personnage'
   fileRoutesById: FileRoutesById
@@ -103,6 +113,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConnexionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/histoire': {
+      id: '/_authenticated/histoire'
+      path: '/histoire'
+      fullPath: '/histoire'
+      preLoaderRoute: typeof AuthenticatedHistoireRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/jeu': {
       id: '/_authenticated/jeu'
       path: '/jeu'
@@ -121,11 +138,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedHistoireRoute: typeof AuthenticatedHistoireRoute
   AuthenticatedJeuRoute: typeof AuthenticatedJeuRoute
   AuthenticatedPersonnageRoute: typeof AuthenticatedPersonnageRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedHistoireRoute: AuthenticatedHistoireRoute,
   AuthenticatedJeuRoute: AuthenticatedJeuRoute,
   AuthenticatedPersonnageRoute: AuthenticatedPersonnageRoute,
 }
