@@ -31,6 +31,12 @@ export function interactions(z: Zone): Interaction[] {
       case "terminal":
         r.push({ ...base, icone: "💻", nom: "Ordinateur (réseau Isitech)", type: "ordinateur" });
         break;
+      case "combat":
+        r.push({ ...base, icone: "🎮", nom: "PC gaming (réseau combat)", type: "pcgamer" });
+        break;
+      case "terminal_linux":
+        r.push({ ...base, icone: "🐧", nom: "PC Linux (terminal)", type: "ordinateur" });
+        break;
       case "classement":
         r.push({ ...base, icone: "🏆", nom: "Classement des élèves", type: "classement" });
         break;

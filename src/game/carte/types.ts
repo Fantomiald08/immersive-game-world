@@ -69,13 +69,15 @@ export type Kind =
   | "miroir"
   | "lampadaire"
   | "tableauHeros"
-  | "pcgamer";
+  | "pcgamer"
+  | "pclinux";
 
 /** Ce qui se passe quand on appuie sur Espace devant un objet. */
 export type Agir =
   | { k: "porte"; vers: ZoneId; arrivee: Arrivee; nom: string }
   | { k: "terminal" }
   | { k: "combat" }
+  | { k: "terminal_linux" }
   | { k: "classement" }
   | { k: "tableau" }
   | { k: "texte"; titre: string; texte: string };

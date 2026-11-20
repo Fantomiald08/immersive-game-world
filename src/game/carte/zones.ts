@@ -32,11 +32,10 @@ const o = (kind: Kind, x: number, y: number, e: Partial<Objet> = {}): Objet => {
   };
   // Ordinateur normal : réseau cours. PC gaming : réseau combat.
   if (base.agir) return base;
-  return kind === "poste"
-    ? { ...base, agir: { k: "terminal" } }
-    : kind === "pcgamer"
-      ? { ...base, agir: { k: "combat" } }
-      : base;
+  if (kind === "poste") return { ...base, agir: { k: "terminal" } };
+  if (kind === "pcgamer") return { ...base, agir: { k: "combat" } };
+  if (kind === "pclinux") return { ...base, agir: { k: "terminal_linux" } };
+  return base;
 };
 const pnj = (
   id: string,
@@ -887,6 +886,7 @@ const SALLES_DEF: Zone[] = [
       o("baie", 10, 2),
       o("armoire", 10, 7),
       o("plante", 1, 8),
+      o("pclinux", 2, 7),
     ],
     [
       pnj(

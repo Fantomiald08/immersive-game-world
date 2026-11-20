@@ -124,3 +124,13 @@ describe("deux réseaux : cours et combats", () => {
     expect(tout.flatMap((z) => z.pnjs).filter((p) => p.monstre)).toHaveLength(0);
   });
 });
+
+describe("PC Linux", () => {
+  it("est placé dans le Labo et ouvre le terminal Linux", () => {
+    const pcs = tout.flatMap((z) => z.objets).filter((o) => o.kind === "pclinux");
+    expect(pcs.length).toBeGreaterThanOrEqual(1);
+    for (const o of pcs) expect(o.agir).toEqual({ k: "terminal_linux" });
+    const labo = tout.find((z) => z.objets.some((o) => o.kind === "pclinux"));
+    expect(labo?.nom).toMatch(/Labo/);
+  });
+});

@@ -88,7 +88,11 @@ export function libelleCible(c: Cible): string {
     case "porte":
       return `Ouvrir la porte : ${a.nom}`;
     case "terminal":
-      return "Utiliser l'ordinateur";
+      return "Utiliser l'ordinateur (réseau cours)";
+    case "combat":
+      return "Utiliser le PC gaming (réseau combat)";
+    case "terminal_linux":
+      return "Utiliser le PC Linux (terminal)";
     case "classement":
       return "Voir le classement";
     default:

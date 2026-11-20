@@ -44,4 +44,5 @@ export const DIM: Record<
   lampadaire: { w: 1, h: 1, hh: 1 },
   tableauHeros: { w: 2, h: 1, hh: 1 },
   pcgamer: { w: 2, h: 1, hh: 1 },
+  pclinux: { w: 2, h: 1, hh: 1 },
 };
