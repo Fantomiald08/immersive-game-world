@@ -11,8 +11,6 @@ export const Route = createFileRoute("/_authenticated/personnage")({
       { name: "description", content: "Personnalise ton personnage avant d'entrer dans l'école Isitech." },
       { property: "og:title", content: "Création de personnage — Isitech World" },
       { property: "og:description", content: "Coiffure, tenue, accessoires : crée ton élève Isitech." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Creation,
@@ -36,7 +34,7 @@ function Creation() {
     setBusy(true);
     await majProfil(p.id, { apparence: a, personnage_cree: true });
     await refresh(); setBusy(false);
-    nav({ to: "/jeu" });
+    nav({ to: "/" });
   };
 
   const Couleurs = ({ k }: { k: "peau" | "cheveux" | "yeux" | "hautCouleur" | "basCouleur" | "chaussures" }) => (
