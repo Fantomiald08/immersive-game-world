@@ -29,7 +29,7 @@ export type Evenement =
   | { k: "quiz"; score: number; total: number }
   | { k: "monstre" }
   | { k: "visite"; salle: string };
-export type Gains = { xp: number; quetes: string[]; badges: string[] };
+export type Gains = { xp: number; quetes: string[]; badges: string[]; badgesIds: string[] };
 
 const cle = (uid: string) => `isitech.prog.v3.${uid}`;
 const aujourdhui = () => new Date().toLocaleDateString("sv-SE");
@@ -55,7 +55,7 @@ function ecrire(uid: string, p: Prog) {
 /** À appeler à l'arrivée dans le jeu : remet les quêtes à zéro chaque jour et compte la série. */
 export function ouvrirJour(uid: string): { prog: Prog; gains: Gains } {
   const p = lire(uid),
-    g: Gains = { xp: 0, quetes: [], badges: [] };
+    g: Gains = { xp: 0, quetes: [], badges: [], badgesIds: [] };
   const j = aujourdhui();
   if (p.jour !== j) {
     p.serie = p.jour === hier() ? p.serie + 1 : 1;
@@ -65,6 +65,7 @@ export function ouvrirJour(uid: string): { prog: Prog; gains: Gains } {
     if (p.serie >= 3 && !p.badges.includes("fidele")) {
       p.badges.push("fidele");
       g.badges.push("Fidèle");
+      g.badgesIds.push("fidele");
     }
     ecrire(uid, p);
   }
@@ -77,7 +78,7 @@ export function lireProg(uid: string): Prog {
 
 export function evenement(uid: string, ev: Evenement): { prog: Prog; gains: Gains } {
   const p = lire(uid),
-    g: Gains = { xp: 0, quetes: [], badges: [] };
+    g: Gains = { xp: 0, quetes: [], badges: [], badgesIds: [] };
   const quete = (id: string) => {
     const q = QUETES.find((x) => x.id === id)!;
     if (!p.faites.includes(id)) {
@@ -91,6 +92,7 @@ export function evenement(uid: string, ev: Evenement): { prog: Prog; gains: Gain
     if (!p.badges.includes(id)) {
       p.badges.push(id);
       g.badges.push(b.nom);
+      g.badgesIds.push(id);
     }
   };
   if (ev.k === "reseau") quete("reseau");
