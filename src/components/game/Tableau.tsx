@@ -16,14 +16,17 @@ export function Tableau({
   moi,
   prog,
   histoire,
+  solo = false,
   onFermer,
 }: {
   moi: Profil;
   prog: Prog | null;
   histoire: EtatHistoire;
+  /** Mode histoire (solo) : on masque le journal des quêtes, propre au multijoueur. */
+  solo?: boolean;
   onFermer: () => void;
 }) {
-  const [onglet, setOnglet] = useState<Onglet>("annonces");
+  const [onglet, setOnglet] = useState<Onglet>(solo ? "histoire" : "annonces");
   const { data } = useReseau();
   const qc = useQueryClient();
   const admin = estAdmin(moi);
@@ -73,13 +76,14 @@ export function Tableau({
     }
     setEnvoi(false);
   };
-  const onglets: Array<[Onglet, string]> = [
+  const tous: Array<[Onglet, string]> = [
     ["annonces", "📢 Annonces"],
     ["nouvelles", "📰 Nouvelles"],
     ["journal", "📔 Mon journal"],
     ["histoire", "📖 Histoire"],
     ["evenements", "🎃 Événements"],
   ];
+  const onglets = solo ? tous.filter(([k]) => k !== "journal") : tous;
 
   return (
     <Fenetre titre="📋 Tableau d'affichage" onFermer={onFermer} large>
