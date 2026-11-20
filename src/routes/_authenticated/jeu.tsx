@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObjec
 import { Monde } from "@/components/game/Monde";
 import { Personnage } from "@/components/game/Personnage";
 import { ReseauCombat } from "@/components/game/ReseauCombat";
+import { TerminalLinux } from "@/components/game/TerminalLinux";
 import { Fenetre } from "@/components/game/Fenetre";
 import { ProfilCarte } from "@/components/game/ProfilCarte";
 import { Reseau } from "@/components/game/Reseau";
@@ -12,12 +13,15 @@ import { Plan } from "@/components/game/Plan";
 import { Tableau } from "@/components/game/Tableau";
 import { Messages } from "@/components/game/Messages";
 import { Tuto } from "@/components/game/Tuto";
+import { EnigmeFenetre } from "@/components/game/Enigme";
 import {
   progresser,
   lireHistoire,
   ecrireHistoire,
   type Evenement as EvHistoire,
   type EtatHistoire,
+  enigmeEnAttente,
+  type Enigme,
 } from "@/game/histoire";
 import { enregistrerCombat, ecrirePerf, lirePerf } from "@/game/ia";
 import { estAdmin } from "@/game/admins";
@@ -54,7 +58,8 @@ type Fen =
   | { k: "plan" }
   | { k: "tableau" }
   | { k: "messages"; id: string | null }
-  | { k: "tuto" };
+  | { k: "tuto" }
+  | { k: "enigme"; enigme: Enigme };
 
 const EMOTES = ["👋", "😂", "💃", "👏"];
 
@@ -79,7 +84,7 @@ function Partie({ moi }: { moi: Profil }) {
   const [depart, setDepart] = useState<Arrivee>(ZONES[ZONE_DEPART].depart);
   const [fondu, setFondu] = useState(false);
   const [fen, setFen] = useState<Fen | null>(null);
-  const [terminal, setTerminal] = useState<null | "cours" | "combat">(null);
+  const [terminal, setTerminal] = useState<null | "cours" | "combat" | "linux">(null);
   const [defiFait, setDefiFait] = useState(() => lireDefi(moi.id));
   const [toast, setToast] = useState("");
   const [msg, setMsg] = useState("");
@@ -153,6 +158,7 @@ function Partie({ moi }: { moi: Profil }) {
           () => annoncer(`🏅 Badge débloqué : ${gains.badges.join(", ")}`),
           gains.xp > 0 ? 1800 : 0,
         );
+      for (const id of gains.badgesIds) histFn.current({ k: "badge", id });
     },
     [annoncer, gagnerXp, moi.id],
   );
@@ -216,6 +222,11 @@ function Partie({ moi }: { moi: Profil }) {
       jouer("ok");
       if (c.k === "pnj") {
         const n = c.p;
+        const enigme = enigmeEnAttente(histRef.current, n.id);
+        if (enigme) {
+          setFen({ k: "enigme", enigme });
+          return;
+        }
         setFen({ k: "texte", titre: n.nom, texte: n.texte ?? "..." });
         histFn.current({ k: "parler", pnj: n.id });
         return;
@@ -231,6 +242,9 @@ function Partie({ moi }: { moi: Profil }) {
           break;
         case "combat":
           setTerminal("combat");
+          break;
+        case "terminal_linux":
+          setTerminal("linux");
           break;
         case "classement":
           void qc.invalidateQueries({ queryKey: ["heros"] });
@@ -492,6 +506,7 @@ function Partie({ moi }: { moi: Profil }) {
           }}
         />
       )}
+      {terminal === "linux" && <TerminalLinux onFermer={() => setTerminal(null)} />}
       {terminal === "combat" && (
         <ReseauCombat
           moi={moi}
@@ -579,6 +594,13 @@ function Partie({ moi }: { moi: Profil }) {
         />
       )}
       {fen?.k === "tuto" && <Tuto onFin={finTuto} />}
+      {fen?.k === "enigme" && (
+        <EnigmeFenetre
+          enigme={fen.enigme}
+          onFermer={fermer}
+          onRepondu={(bonne) => histFn.current({ k: "enigme", id: fen.enigme.id, bonne })}
+        />
+      )}
       {dialogue && !terminal && fen === null && (
         <Fenetre titre={dialogue.titre} onFermer={() => setDialogue(null)}>
           <p className="text-xl">{dialogue.texte}</p>
