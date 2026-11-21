@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { PartieArcade } from "@/components/game/arcade/PartieArcade";
 import { JEUX, LISTE_JEUX } from "@/game/arcade/jeux";
 import { useArcade } from "@/game/arcade/reseau";
-import { equipeDe, pleine, raisonBlocage, type RoomInfo } from "@/game/arcade/room";
-import type { ModeArcade, PhasePartie } from "@/game/arcade/types";
+import { construireRoom, equipeDe, pleine, raisonBlocage, type RoomInfo, type RoomVue } from "@/game/arcade/room";
+import type { JeuId, ModeArcade, PhasePartie } from "@/game/arcade/types";
+import { Button } from "@/components/ui/button";
 
 type Moi = { id: string; pseudo: string; niveau: number };
 
@@ -15,6 +16,13 @@ export function Arcade({ moi, onFermer }: { moi: Moi; onFermer: () => void }) {
   const reseau = useArcade(moi);
   const { room, proprio, etat, salles, message } = reseau;
   const [liste, setListe] = useState(false);
+  const [partieSolo, setPartieSolo] = useState<RoomVue | null>(null);
+  const lancerSolo = (jeu: JeuId) => {
+    reseau.quitter();
+    const maintenant = Date.now();
+    const locale = construireRoom(moi.id, [{ ...moi, depuis: maintenant, jeu, phase: "jeu", manche: maintenant, graine: maintenant }]);
+    setPartieSolo(locale);
+  };
 
   // Partie interrompue : la room repasse en « salle » alors que la partie n'était pas finie.
   const phasePartie = useRef<PhasePartie | "">("");
@@ -43,6 +51,7 @@ export function Arcade({ moi, onFermer }: { moi: Moi; onFermer: () => void }) {
         <div className="flex items-center justify-between gap-2 border-b-4 border-[#2a1810] px-3 py-2">
           <span className="font-pixel text-xs text-accent">🕹️ ARCADE — Salle Vénus</span>
           <div className="flex gap-2">
+            {partieSolo && <Button variant="secondary" onClick={() => setPartieSolo(null)}>Choisir un jeu</Button>}
             {room && (
               <button
                 className="pixel-btn !bg-muted !px-2 !py-1 !text-foreground"
@@ -58,6 +67,18 @@ export function Arcade({ moi, onFermer }: { moi: Moi; onFermer: () => void }) {
         </div>
 
         <div className="space-y-3 overflow-auto p-3">
+          {partieSolo ? (
+            <PartieArcade key={partieSolo.manche} jeu={JEUX[partieSolo.jeu]} room={partieSolo} moiId={moi.id} reseau={reseau} solo
+              onPhase={() => {}} onRetourRoom={() => setPartieSolo(null)} onQuitterRoom={() => setPartieSolo(null)} onFermer={fermer} />
+          ) : <>
+          {!room && !reseau.roomId && (
+            <section aria-label="Jeux solo" className="space-y-2 border-b border-border pb-3">
+              <h2 className="font-pixel text-xs text-accent">JOUER EN SOLO</h2>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {LISTE_JEUX.map((jeu) => <Button key={jeu.id} variant="secondary" className="h-auto whitespace-normal py-3" aria-label={`Jouer en solo : ${jeu.nom}`} onClick={() => lancerSolo(jeu.id)}><span aria-hidden>{jeu.icone}</span>{jeu.nom}</Button>)}
+              </div>
+            </section>
+          )}
           {msg && (
             <div
               role="status"
@@ -105,7 +126,7 @@ export function Arcade({ moi, onFermer }: { moi: Moi; onFermer: () => void }) {
             />
           )}
           {etat === "pret" && room && room.phase === "salle" && (
-            <SalleAttente moi={moi} reseau={reseau} />
+            <SalleAttente moi={moi} reseau={reseau} onSolo={lancerSolo} />
           )}
           {etat === "pret" && room && room.phase === "jeu" && (
             <PartieArcade
@@ -127,6 +148,7 @@ export function Arcade({ moi, onFermer }: { moi: Moi; onFermer: () => void }) {
               Seul le propriétaire de la room peut relancer ou changer de jeu.
             </p>
           )}
+          </>}
         </div>
       </div>
     </div>
@@ -221,7 +243,7 @@ function ListeRooms({
   );
 }
 
-function SalleAttente({ moi, reseau }: { moi: Moi; reseau: ReturnType<typeof useArcade> }) {
+function SalleAttente({ moi, reseau, onSolo }: { moi: Moi; reseau: ReturnType<typeof useArcade>; onSolo: (jeu: JeuId) => void }) {
   const { room, proprio } = reseau;
   if (!room) return null;
   const jeu = JEUX[room.jeu];
@@ -326,6 +348,7 @@ function SalleAttente({ moi, reseau }: { moi: Moi; reseau: ReturnType<typeof use
       </section>
 
       <div className="flex flex-wrap items-center gap-3">
+        {proprio && room.joueurs.length === 1 && <Button variant="secondary" onClick={() => onSolo(room.jeu)}>Jouer en solo</Button>}
         {proprio ? (
           <>
             <button

@@ -28,6 +28,16 @@ afterEach(() => {
 });
 
 describe("interface de l'arcade", () => {
+  for (const nom of ["Arène multi-rounds", "Course de véhicules", "Combat 2D"]) {
+    it(`lance ${nom} seul sans créer de room`, () => {
+      const leo = ouvrir("leo", "Léo");
+      fireEvent.click(leo.ecran.getByRole("button", { name: `Jouer en solo : ${nom}` }));
+      expect(leo.ecran.getByLabelText(`Partie : ${nom}`)).toBeTruthy();
+      expect(leo.ecran.queryByText(/En attente d'un joueur/)).toBeNull();
+      fireEvent.click(leo.ecran.getByRole("button", { name: "Choisir un jeu" }));
+      expect(leo.ecran.getByRole("button", { name: `Jouer en solo : ${nom}` })).toBeTruthy();
+    });
+  }
   it("propose d'abord « Créer une room » et « Rejoindre une room »", () => {
     const { ecran } = ouvrir("leo", "Léo");
     expect(ecran.getByText("Créer une room")).toBeTruthy();

@@ -5,6 +5,7 @@ import { abandonner, avancer, melange } from "@/game/arcade/moteur";
 import type { ArcadeReseau } from "@/game/arcade/reseau";
 import { joueursDePartie, type RoomVue } from "@/game/arcade/room";
 import type { EtatBase, Jeu, PhasePartie, Resultat } from "@/game/arcade/types";
+import { entreeRobot, ID_BOT, joueursSolo } from "@/game/arcade/solo";
 
 const PAS = 1 / 60;
 /** L'hôte envoie l'état 8 fois par seconde (2 fois par seconde une fois la partie finie). */
@@ -27,6 +28,7 @@ export function PartieArcade({
   onRetourRoom,
   onQuitterRoom,
   onFermer,
+  solo = false,
 }: {
   jeu: Jeu;
   room: RoomVue;
@@ -36,6 +38,7 @@ export function PartieArcade({
   onRetourRoom: () => void;
   onQuitterRoom: () => void;
   onFermer: () => void;
+  solo?: boolean;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const hote = room.proprietaire.id === moiId;
@@ -91,27 +94,30 @@ export function PartieArcade({
           const s = sim.current;
           // Un joueur parti de la room abandonne la partie.
           const presents = new Set(roomRef.current.joueurs.map((j) => j.id));
-          for (const j of s.joueurs) if (!j.absent && !presents.has(j.id)) abandonner(jeu, s, j.id);
+          for (const j of s.joueurs) if (!j.absent && !(solo && j.id === ID_BOT) && !presents.has(j.id)) abandonner(jeu, s, j.id);
           entrees.current[moiId] = mesTouches.current;
           reste += dt;
           let n = 0;
           while (reste >= PAS && n++ < 6) {
+            if (solo) entrees.current[ID_BOT] = entreeRobot(jeu.id, s);
             avancer(jeu, s, entrees.current, PAS);
             reste -= PAS;
           }
           if (n >= 6) reste = 0;
           const cadence = s.phase === "fini" ? INTERVALLE_ETAT_FIN : INTERVALLE_ETAT;
-          if (now - derniereEnvoi >= cadence) {
+          if (!solo && now - derniereEnvoi >= cadence) {
             derniereEnvoi = now;
             envoyerSnapshot(manche, s);
           }
           etat = s;
         } else if (recu.current.cur) {
           const r = recu.current;
+          const courant = r.cur;
+          if (!courant) return;
           const t = Math.min(1, (now - r.quand) / INTERVALLE_ETAT);
-          etat = r.prev && r.prev !== r.cur ? melange(r.prev, r.cur!, t) : r.cur;
+          etat = r.prev && r.prev !== courant ? melange(r.prev, courant, t) : courant;
           // Les valeurs « logiques » (phase, résultat) viennent toujours du dernier état reçu.
-          etat = { ...etat!, phase: r.cur!.phase, resultat: r.cur!.resultat };
+          etat = { ...etat, phase: courant.phase, resultat: courant.resultat };
         }
         if (etat) {
           ctx.clearRect(0, 0, c.width, c.height);
@@ -134,8 +140,9 @@ export function PartieArcade({
     };
 
     if (hote) {
-      sim.current = jeu.creer(joueursDePartie(roomRef.current), roomRef.current.graine);
+      sim.current = jeu.creer(solo ? joueursSolo(roomRef.current.proprietaire) : joueursDePartie(roomRef.current), roomRef.current.graine);
       setEnAttente(false);
+      if (solo) return lancer(() => {});
       const arret = abonner({
         entree: (id, bits) => {
           entrees.current[id] = bits;
@@ -156,7 +163,7 @@ export function PartieArcade({
       },
     });
     return lancer(arret);
-  }, [jeu, hote, manche, moiId, abonner, envoyerSnapshot]);
+  }, [jeu, hote, manche, moiId, abonner, envoyerSnapshot, solo]);
 
   const classement = useMemo(() => resultat?.lignes ?? [], [resultat]);
 
@@ -196,16 +203,16 @@ export function PartieArcade({
               <div className="flex flex-wrap justify-center gap-2">
                 {hote ? (
                   <button className="pixel-btn" onClick={onRetourRoom}>
-                    ↩ Retour à la room
+                    {solo ? "↩ Choisir un jeu" : "↩ Retour à la room"}
                   </button>
                 ) : (
                   <p className="w-full text-lg text-muted-foreground">
                     En attente du propriétaire…
                   </p>
                 )}
-                <button className="pixel-btn !bg-muted !text-foreground" onClick={onQuitterRoom}>
+                {!solo && <button className="pixel-btn !bg-muted !text-foreground" onClick={onQuitterRoom}>
                   Quitter la room
-                </button>
+                </button>}
                 <button className="pixel-btn !bg-accent" onClick={onFermer}>
                   🏠 Retour à la salle Vénus
                 </button>
