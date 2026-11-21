@@ -1,5 +1,6 @@
-import { aleatoire, borne, dessinerHud } from "../moteur";
+import { aleatoire, borne, dessinerHud, meilleureEquipe } from "../moteur";
 import {
+  angleVise,
   BTN,
   DUREE_COMPTE,
   DUREE_PARTIE,
@@ -10,6 +11,8 @@ import {
   type JoueurPartie,
   type LigneClassement,
   type Resultat,
+  equipesDe,
+  nomEquipe,
 } from "../types";
 
 /** Mini-jeu 1 : arène vue du dessus, 3 rounds dans 3 arènes différentes, armes à ramasser. */
@@ -18,7 +21,7 @@ import {
 const ILLIMITE = 1e9;
 export const L = 800;
 export const H = 480;
-const RAYON = 12;
+export const RAYON = 12;
 const VITESSE = 150;
 const PV_MAX = 100;
 const NB_ROUNDS = 3;
@@ -102,7 +105,7 @@ export const ARMES: Record<Arme, DefArme> = {
     couleur: "#c084fc",
   },
 };
-const PORTEE_POING = 26 + RAYON;
+export const PORTEE_POING = 26 + RAYON;
 
 export type Arene = { nom: string; fond: string; sol: string; murs: Rect[] };
 export const ARENES: Arene[] = [
@@ -194,23 +197,34 @@ export type EtatArene = EtatBase & {
 const equipeDe = (s: EtatArene, id: string): Equipe =>
   s.joueurs.find((j) => j.id === id)?.equipe ?? 0;
 
-/** Où réapparaît un joueur : côté gauche pour l'équipe 0, côté droit pour l'équipe 1. */
+/** Où réapparaît un joueur : gauche (équipe 0), droite (1), haut (2) ou bas (3) de l'arène. */
 function pointDepart(s: EtatArene, i: number): { x: number; y: number } {
   const j = s.joueurs[i]!;
   const rang = s.joueurs.slice(0, i).filter((q) => q.equipe === j.equipe).length;
   const ys = [140, 340, 240, 90];
-  return { x: j.equipe === 0 ? 60 : L - 60, y: ys[rang % ys.length]! };
+  const xs = [L / 2 - 90, L / 2 + 90, L / 2, L / 2 - 180];
+  switch (j.equipe) {
+    case 0:
+      return { x: 60, y: ys[rang % ys.length]! };
+    case 1:
+      return { x: L - 60, y: ys[rang % ys.length]! };
+    case 2:
+      return { x: xs[rang % xs.length]!, y: 50 };
+    default:
+      return { x: xs[rang % xs.length]!, y: H - 50 };
+  }
 }
 
 function nouveauPerso(s: EtatArene, i: number): PersoArene {
   const { x, y } = pointDepart(s, i);
-  const droite = s.joueurs[i]!.equipe === 0;
+  // Au départ, on regarde vers le centre de l'arène.
+  const d = Math.hypot(L / 2 - x, H / 2 - y) || 1;
   return {
     id: s.joueurs[i]!.id,
     x,
     y,
-    fx: droite ? 1 : -1,
-    fy: 0,
+    fx: (L / 2 - x) / d,
+    fy: (H / 2 - y) / d,
     pv: PV_MAX,
     arme: "poing",
     munitions: ILLIMITE,
@@ -418,6 +432,12 @@ function pas(base: EtatBase, entrees: Readonly<Record<string, number>>, dt: numb
       p.fx = dx;
       p.fy = dy;
     }
+    // Visée précise (ordinateurs seulement) : elle remplace la direction regardée.
+    if (presse(e, BTN.visee)) {
+      const ang = angleVise(e);
+      p.fx = Math.cos(ang);
+      p.fy = Math.sin(ang);
+    }
     if (presse(e, BTN.b) && p.dash <= 0) {
       p.dash = DASH_RECHARGE;
       p.dashT = DASH_DUREE;
@@ -494,11 +514,14 @@ function scoreEquipe(s: EtatArene, e: Equipe) {
 
 function finir(base: EtatBase): Resultat {
   const s = base as EtatArene;
-  const a = scoreEquipe(s, 0);
-  const b = scoreEquipe(s, 1);
-  let vainqueur: Equipe | null = null;
-  if (a.kills !== b.kills) vainqueur = a.kills > b.kills ? 0 : 1;
-  else if (a.morts !== b.morts) vainqueur = a.morts < b.morts ? 0 : 1;
+  const equipes = equipesDe(s.joueurs);
+  const scores = equipes.map((e) => scoreEquipe(s, e));
+  // Le plus de kills gagne ; à égalité, le moins de morts.
+  const vainqueur = meilleureEquipe(equipes, (e) => {
+    const sc = scoreEquipe(s, e);
+    return [-sc.kills, sc.morts];
+  });
+  const total = scores.map((x) => x.kills).join(" – ");
   const lignes: LigneClassement[] = s.p
     .map((p, i) => ({ p, j: s.joueurs[i]! }))
     .sort((x, y) => y.p.kills - x.p.kills || x.p.morts - y.p.morts)
@@ -511,8 +534,8 @@ function finir(base: EtatBase): Resultat {
     }));
   const titre =
     vainqueur === null
-      ? `Égalité ${a.kills} – ${b.kills}`
-      : `Victoire de l'équipe ${vainqueur === 0 ? "bleue" : "rouge"} (${a.kills} – ${b.kills})`;
+      ? `Égalité (${total})`
+      : `Victoire de ${nomEquipe(s.joueurs, vainqueur)} (${total})`;
   return { vainqueur, titre, lignes };
 }
 

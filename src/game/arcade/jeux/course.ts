@@ -1,4 +1,4 @@
-import { borne, dessinerHud, formaterChrono } from "../moteur";
+import { borne, dessinerHud, formaterChrono, meilleureEquipe } from "../moteur";
 import {
   BTN,
   DUREE_COMPTE,
@@ -10,6 +10,8 @@ import {
   type JoueurPartie,
   type LigneClassement,
   type Resultat,
+  equipesDe,
+  nomEquipe,
 } from "../types";
 
 /**
@@ -162,15 +164,11 @@ function classer(s: EtatCourse): Array<{ c: Voiture; j: JoueurPartie; rang: numb
 function finir(base: EtatBase): Resultat {
   const s = base as EtatCourse;
   const cl = classer(s);
-  const pts: Record<Equipe, number> = { 0: 0, 1: 0 };
-  const meilleur: Record<Equipe, number> = { 0: 99, 1: 99 };
-  for (const x of cl) {
-    pts[x.j.equipe] += x.rang;
-    meilleur[x.j.equipe] = Math.min(meilleur[x.j.equipe], x.rang);
-  }
-  let vainqueur: Equipe | null = null;
-  if (pts[0] !== pts[1]) vainqueur = pts[0] < pts[1] ? 0 : 1;
-  else if (meilleur[0] !== meilleur[1]) vainqueur = meilleur[0] < meilleur[1] ? 0 : 1;
+  // Une équipe gagne avec le plus petit total de places ; à égalité, avec la meilleure place individuelle.
+  const vainqueur = meilleureEquipe(equipesDe(s.joueurs), (e) => {
+    const rangs = cl.filter((x) => x.j.equipe === e).map((x) => x.rang);
+    return [rangs.reduce((t, r) => t + r, 0), Math.min(...rangs)];
+  });
   const lignes: LigneClassement[] = cl.map(({ c, j, rang }) => ({
     id: j.id,
     pseudo: j.pseudo,
@@ -184,12 +182,7 @@ function finir(base: EtatBase): Resultat {
   }));
   return {
     vainqueur,
-    titre:
-      vainqueur === null
-        ? "Égalité !"
-        : cl.length === 2
-          ? `${cl[0]!.j.pseudo} gagne la course`
-          : `Victoire de l'équipe ${vainqueur === 0 ? "bleue" : "rouge"}`,
+    titre: vainqueur === null ? "Égalité !" : `Victoire de ${nomEquipe(s.joueurs, vainqueur)}`,
     lignes,
   };
 }

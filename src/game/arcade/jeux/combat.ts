@@ -1,4 +1,4 @@
-import { borne, dessinerHud } from "../moteur";
+import { borne, dessinerHud, meilleureEquipe } from "../moteur";
 import {
   BTN,
   DUREE_COMPTE,
@@ -10,6 +10,9 @@ import {
   type JoueurPartie,
   type LigneClassement,
   type Resultat,
+  COULEUR_EQUIPE,
+  equipesDe,
+  nomEquipe,
 } from "../types";
 
 /**
@@ -79,18 +82,25 @@ export type EtatCombat = EtatBase & {
   f: Combattant[];
   boules: Boule[];
   manche: number;
-  manches: [number, number];
+  /** Manches gagnées, par équipe. */
+  manches: number[];
   /** > 0 : pause entre deux manches. */
   entracte: number;
   annonce: string;
   suivant: number;
 };
 
-const depart = (j: JoueurPartie, rang: number): number =>
-  j.equipe === 0 ? 170 + rang * 110 : L - 170 - rang * 110;
+/** Position de départ : l'équipe 0 à gauche, la 1 à droite ; en chacun pour soi, les équipes 2 et 3 au centre. */
+const DEPARTS: Record<Equipe, [number, number]> = {
+  0: [170, 280],
+  1: [L - 170, L - 280],
+  2: [340, 400],
+  3: [460, 400],
+};
+const depart = (j: JoueurPartie, rang: number): number => DEPARTS[j.equipe][rang % 2 === 0 ? 0 : 1];
 
 function placer(s: EtatCombat): void {
-  const compte: Record<Equipe, number> = { 0: 0, 1: 0 };
+  const compte: Record<Equipe, number> = { 0: 0, 1: 0, 2: 0, 3: 0 };
   s.f = s.joueurs.map((j) => {
     const x = depart(j, compte[j.equipe]++);
     return {
@@ -99,7 +109,7 @@ function placer(s: EtatCombat): void {
       y: SOL,
       vx: 0,
       vy: 0,
-      face: j.equipe === 0 ? 1 : -1,
+      face: x < L / 2 ? 1 : -1,
       pv: PV_MAX,
       ko: false,
       garde: false,
@@ -124,7 +134,7 @@ function creer(joueurs: JoueurPartie[]): EtatCombat {
     f: [],
     boules: [],
     manche: 1,
-    manches: [0, 0],
+    manches: [0, 0, 0, 0],
     entracte: 0,
     annonce: "",
     suivant: 1,
@@ -174,8 +184,8 @@ function toucher(
 }
 
 function finDeManche(s: EtatCombat, gagnante: Equipe | null): void {
-  if (gagnante !== null) s.manches[gagnante] += 1;
-  s.annonce = gagnante === null ? "ÉGALITÉ" : `K.O. ! Manche ${gagnante === 0 ? "bleue" : "rouge"}`;
+  if (gagnante !== null) s.manches[gagnante] = (s.manches[gagnante] ?? 0) + 1;
+  s.annonce = gagnante === null ? "ÉGALITÉ" : `K.O. ! Manche : ${nomEquipe(s.joueurs, gagnante)}`;
   s.entracte = ENTRACTE;
 }
 
@@ -193,7 +203,7 @@ function pas(base: EtatBase, entrees: Readonly<Record<string, number>>, dt: numb
     if (s.entracte <= 0) {
       s.entracte = 0;
       s.annonce = "";
-      if (s.manches[0] < MANCHES_VICTOIRE && s.manches[1] < MANCHES_VICTOIRE) {
+      if (!s.manches.some((m) => m >= MANCHES_VICTOIRE)) {
         s.manche += 1;
         placer(s);
       }
@@ -323,33 +333,28 @@ function pas(base: EtatBase, entrees: Readonly<Record<string, number>>, dt: numb
     if (fin) s.boules.splice(k, 1);
   }
 
-  // Fin de manche : une équipe n'a plus personne debout.
-  const a = vivants(s, 0).length;
-  const b = vivants(s, 1).length;
-  if (a === 0 || b === 0) finDeManche(s, a === 0 && b === 0 ? null : a === 0 ? 1 : 0);
+  // Fin de manche : il ne reste qu'une équipe debout (ou plus aucune).
+  const debout = equipesDe(s.joueurs).filter((e) => vivants(s, e).length > 0);
+  if (debout.length <= 1) finDeManche(s, debout[0] ?? null);
 }
 
 function termine(base: EtatBase): boolean {
   const s = base as EtatCombat;
-  return s.entracte <= 0 && (s.manches[0] >= MANCHES_VICTOIRE || s.manches[1] >= MANCHES_VICTOIRE);
+  return s.entracte <= 0 && s.manches.some((m) => m >= MANCHES_VICTOIRE);
 }
 
 function finir(base: EtatBase): Resultat {
   const s = base as EtatCombat;
-  const m: [number, number] = [...s.manches];
+  const equipes = equipesDe(s.joueurs);
+  const m = [...s.manches];
   // Chrono écoulé en pleine manche : elle revient à l'équipe qui a le plus de PV.
-  if (m[0] < MANCHES_VICTOIRE && m[1] < MANCHES_VICTOIRE && s.entracte <= 0) {
-    const p0 = pvEquipe(s, 0);
-    const p1 = pvEquipe(s, 1);
-    if (p0 !== p1) m[p0 > p1 ? 0 : 1] += 1;
+  if (equipes.every((e) => (m[e] ?? 0) < MANCHES_VICTOIRE) && s.entracte <= 0) {
+    const meilleure = meilleureEquipe(equipes, (e) => [-pvEquipe(s, e)]);
+    if (meilleure !== null) m[meilleure] = (m[meilleure] ?? 0) + 1;
   }
-  let vainqueur: Equipe | null = null;
-  if (m[0] !== m[1]) vainqueur = m[0] > m[1] ? 0 : 1;
-  else {
-    const p0 = pvEquipe(s, 0);
-    const p1 = pvEquipe(s, 1);
-    if (p0 !== p1) vainqueur = p0 > p1 ? 0 : 1;
-  }
+  // Le plus de manches gagne ; à égalité, le plus de PV restants.
+  const vainqueur = meilleureEquipe(equipes, (e) => [-(m[e] ?? 0), -pvEquipe(s, e)]);
+  const score = equipes.map((e) => m[e] ?? 0).join(" – ");
   const lignes: LigneClassement[] = s.f
     .map((c, i) => ({ c, j: s.joueurs[i]! }))
     .sort((x, y) => {
@@ -364,14 +369,16 @@ function finir(base: EtatBase): Resultat {
       rang: r + 1,
       texte: j.absent
         ? "a abandonné"
-        : `${Math.round(c.pv)} PV · équipe ${j.equipe === 0 ? "bleue" : "rouge"}`,
+        : s.joueurs.filter((q) => q.equipe === j.equipe).length > 1
+          ? `${Math.round(c.pv)} PV · ${nomEquipe(s.joueurs, j.equipe)}`
+          : `${Math.round(c.pv)} PV`,
     }));
   return {
     vainqueur,
     titre:
       vainqueur === null
-        ? `Égalité ${m[0]} – ${m[1]}`
-        : `Victoire de l'équipe ${vainqueur === 0 ? "bleue" : "rouge"} (${m[0]} – ${m[1]})`,
+        ? `Égalité (${score})`
+        : `Victoire de ${nomEquipe(s.joueurs, vainqueur)} (${score})`,
     lignes,
   };
 }
@@ -474,7 +481,7 @@ function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string): v
   for (const b of s.boules) {
     const g = ctx.createRadialGradient(b.x, b.y, 2, b.x, b.y, 18);
     g.addColorStop(0, "#fff");
-    g.addColorStop(0.5, b.eq === 0 ? "#4da3ff" : "#ff6b6b");
+    g.addColorStop(0.5, COULEUR_EQUIPE[b.eq]);
     g.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = g;
     ctx.beginPath();
@@ -482,42 +489,40 @@ function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string): v
     ctx.fill();
   }
 
-  // Barres de vie : équipe bleue à gauche, rouge à droite
+  // Barres de vie : équipes 0 et 2 à gauche, 1 et 3 à droite.
   ctx.textBaseline = "middle";
-  for (const e of [0, 1] as Equipe[]) {
-    const membres = s.f.map((c, i) => ({ c, j: s.joueurs[i]! })).filter((x) => x.j.equipe === e);
-    membres.forEach(({ c, j }, k) => {
-      const w = 290;
-      const x = e === 0 ? 10 : L - 10 - w;
-      const y = 8 + k * 24;
-      ctx.fillStyle = "rgba(0,0,0,0.6)";
-      ctx.fillRect(x, y, w, 18);
-      ctx.fillStyle = c.pv > 50 ? "#6ee7a0" : c.pv > 25 ? "#ffd166" : "#ff6b6b";
-      const lp = (w - 4) * (c.pv / PV_MAX);
-      ctx.fillRect(e === 0 ? x + 2 : x + w - 2 - lp, y + 2, lp, 14);
-      ctx.fillStyle = "#fff";
-      ctx.font = "bold 11px monospace";
-      ctx.textAlign = e === 0 ? "left" : "right";
-      ctx.fillText(j.pseudo.slice(0, 12), e === 0 ? x + 6 : x + w - 6, y + 9);
-    });
-  }
-  // Manches gagnées
+  const rangs = { gauche: 0, droite: 0 };
+  s.f.forEach((c, i) => {
+    const j = s.joueurs[i]!;
+    const gauche = j.equipe % 2 === 0;
+    const k = gauche ? rangs.gauche++ : rangs.droite++;
+    const w = 290;
+    const x = gauche ? 10 : L - 10 - w;
+    const y = 8 + k * 24;
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillRect(x, y, w, 18);
+    ctx.fillStyle = c.pv > 50 ? "#6ee7a0" : c.pv > 25 ? "#ffd166" : "#ff6b6b";
+    const lp = (w - 4) * (c.pv / PV_MAX);
+    ctx.fillRect(gauche ? x + 2 : x + w - 2 - lp, y + 2, lp, 14);
+    ctx.fillStyle = COULEUR_EQUIPE[j.equipe];
+    ctx.fillRect(gauche ? x : x + w - 4, y, 4, 18);
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 11px monospace";
+    ctx.textAlign = gauche ? "left" : "right";
+    ctx.fillText(j.pseudo.slice(0, 12), gauche ? x + 10 : x + w - 10, y + 9);
+  });
+  // Manches gagnées, par équipe
   ctx.textAlign = "center";
   ctx.font = "bold 14px monospace";
-  ctx.fillStyle = "#4da3ff";
-  ctx.fillText(
-    "●".repeat(s.manches[0]) + "○".repeat(Math.max(0, MANCHES_VICTOIRE - s.manches[0])),
-    L / 2 - 60,
-    44,
-  );
-  ctx.fillStyle = "#ff6b6b";
-  ctx.fillText(
-    "●".repeat(s.manches[1]) + "○".repeat(Math.max(0, MANCHES_VICTOIRE - s.manches[1])),
-    L / 2 + 60,
-    44,
-  );
+  const equipes = equipesDe(s.joueurs);
+  equipes.forEach((e, k) => {
+    const x = L / 2 + (k - (equipes.length - 1) / 2) * (equipes.length > 2 ? 56 : 120);
+    const gagnees = Math.min(MANCHES_VICTOIRE, s.manches[e] ?? 0);
+    ctx.fillStyle = COULEUR_EQUIPE[e];
+    ctx.fillText("●".repeat(gagnees) + "○".repeat(MANCHES_VICTOIRE - gagnees), x, 44);
+  });
   ctx.fillStyle = "#fff";
-  ctx.fillText(`MANCHE ${Math.min(s.manche, 3)}`, L / 2, 44);
+  ctx.fillText(`MANCHE ${Math.min(s.manche, 3)}`, L / 2, 60);
   const moiC = s.f.find((c) => c.id === moi);
   if (moiC) {
     ctx.fillStyle = moiC.cdSpecial > 0 ? "#999" : "#4fd1c5";
