@@ -274,6 +274,10 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
         case "terminal_linux":
           setTerminal("linux");
           break;
+        case "arcade":
+          if (solo) annoncer("🕹️ La borne d'arcade est réservée au mode multijoueur.");
+          else setTerminal("arcade");
+          break;
         case "classement":
           void qc.invalidateQueries({ queryKey: ["heros"] });
           setFen({ k: "classement" });
@@ -286,6 +290,10 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
         case "texte":
           setFen({ k: "texte", titre: a.titre, texte: a.texte });
           break;
+        default: {
+          const actionNonGeree: never = a;
+          return actionNonGeree;
+        }
       }
     },
     [aller, qc, annoncer, solo],

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ZONES } from "./zones";
-import { atteignable, estBloque, estMur, VEC } from "./moteur";
+import { atteignable, cibleDevant, estBloque, estMur, VEC } from "./moteur";
 import type { Arrivee, Zone } from "./types";
 
 const tout = Object.values(ZONES);
@@ -132,5 +132,16 @@ describe("PC Linux", () => {
     for (const o of pcs) expect(o.agir).toEqual({ k: "terminal_linux" });
     const labo = tout.find((z) => z.objets.some((o) => o.kind === "pclinux"));
     expect(labo?.nom).toMatch(/Labo/);
+  });
+});
+
+describe("borne d'arcade", () => {
+  it("détecte l'action arcade devant la borne de Vénus", () => {
+    const zone = ZONES.venus;
+    const borne = zone.objets.find((o) => o.kind === "arcade");
+    expect(borne).toBeDefined();
+    if (!borne) throw new Error("Borne absente");
+    const cible = cibleDevant(zone, borne.x, borne.y + borne.h, "haut", zone.pnjs);
+    expect(cible?.k === "objet" ? cible.o.agir : null).toEqual({ k: "arcade" });
   });
 });
