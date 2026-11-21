@@ -5,6 +5,7 @@ import { Monde } from "@/components/game/Monde";
 import { Personnage } from "@/components/game/Personnage";
 import { ReseauCombat } from "@/components/game/ReseauCombat";
 import { TerminalLinux } from "@/components/game/TerminalLinux";
+import { Arcade } from "@/components/game/arcade/Arcade";
 import { Chargement } from "@/components/game/Chargement";
 import { PauseMenu } from "@/components/game/PauseMenu";
 import { Fenetre } from "@/components/game/Fenetre";
@@ -103,7 +104,7 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
   zoneIdRef.current = zoneId;
   const [fondu, setFondu] = useState(false);
   const [fen, setFen] = useState<Fen | null>(null);
-  const [terminal, setTerminal] = useState<null | "cours" | "combat" | "linux">(null);
+  const [terminal, setTerminal] = useState<null | "cours" | "combat" | "linux" | "arcade">(null);
   const [defiFait, setDefiFait] = useState(() => lireDefi(moi.id));
   const [toast, setToast] = useState("");
   const [msg, setMsg] = useState("");
@@ -272,6 +273,11 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
         case "terminal_linux":
           setTerminal("linux");
           break;
+        case "arcade":
+          // L'arcade est un jeu en réseau : elle n'existe pas dans le mode histoire (solo isolé).
+          if (solo) annoncer("🕹️ La borne d'arcade est réservée au mode multijoueur.");
+          else setTerminal("arcade");
+          break;
         case "classement":
           void qc.invalidateQueries({ queryKey: ["heros"] });
           setFen({ k: "classement" });
@@ -286,7 +292,7 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
           break;
       }
     },
-    [aller, qc],
+    [aller, qc, annoncer, solo],
   );
 
   const onSortie = useCallback((s: Sortie) => aller(s.vers, s.arrivee), [aller]);
@@ -635,6 +641,12 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
             histFn.current({ k: "depot" });
             void gagnerXp(10, "cours déposé");
           }}
+        />
+      )}
+      {terminal === "arcade" && !solo && (
+        <Arcade
+          moi={{ id: moi.id, pseudo: moi.pseudo, niveau: moi.niveau }}
+          onFermer={() => setTerminal(null)}
         />
       )}
       {terminal === "linux" && <TerminalLinux onFermer={() => setTerminal(null)} />}
