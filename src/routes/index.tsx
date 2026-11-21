@@ -16,6 +16,8 @@ export const Route = createFileRoute("/")({
       },
       { property: "og:title", content: "Isitech World" },
       { property: "og:description", content: "Un jeu 2D multijoueur dans l'école Isitech." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Accueil,

@@ -11,6 +11,8 @@ export const Route = createFileRoute("/_authenticated/histoire")({
         property: "og:description",
         content: "Le mode solo d'Isitech World : missions, énigmes, combats.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: () => <EcranJeu mode="solo" />,

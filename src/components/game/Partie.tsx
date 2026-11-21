@@ -258,7 +258,8 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
         histFn.current({ k: "parler", pnj: n.id });
         return;
       }
-      const a = c.o.agir!;
+      const a = c.o.agir;
+      if (!a) return;
       switch (a.k) {
         case "porte":
           jouer("porte");
@@ -272,11 +273,6 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
           break;
         case "terminal_linux":
           setTerminal("linux");
-          break;
-        case "arcade":
-          // L'arcade est un jeu en réseau : elle n'existe pas dans le mode histoire (solo isolé).
-          if (solo) annoncer("🕹️ La borne d'arcade est réservée au mode multijoueur.");
-          else setTerminal("arcade");
           break;
         case "classement":
           void qc.invalidateQueries({ queryKey: ["heros"] });
