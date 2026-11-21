@@ -70,7 +70,8 @@ export type Kind =
   | "lampadaire"
   | "tableauHeros"
   | "pcgamer"
-  | "pclinux";
+  | "pclinux"
+  | "arcade";
 
 /** Ce qui se passe quand on appuie sur Espace devant un objet. */
 export type Agir =
@@ -78,6 +79,7 @@ export type Agir =
   | { k: "terminal" }
   | { k: "combat" }
   | { k: "terminal_linux" }
+  | { k: "arcade" }
   | { k: "classement" }
   | { k: "tableau" }
   | { k: "texte"; titre: string; texte: string };

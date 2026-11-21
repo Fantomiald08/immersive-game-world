@@ -37,6 +37,9 @@ export function interactions(z: Zone): Interaction[] {
       case "terminal_linux":
         r.push({ ...base, icone: "🐧", nom: "PC Linux (terminal)", type: "ordinateur" });
         break;
+      case "arcade":
+        r.push({ ...base, icone: "🕹️", nom: "Borne d'arcade (mini-jeux)", type: "pcgamer" });
+        break;
       case "classement":
         r.push({ ...base, icone: "🏆", nom: "Classement des élèves", type: "classement" });
         break;

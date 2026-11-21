@@ -93,6 +93,8 @@ export function libelleCible(c: Cible): string {
       return "Utiliser le PC gaming (réseau combat)";
     case "terminal_linux":
       return "Utiliser le PC Linux (terminal)";
+    case "arcade":
+      return "Jouer à la borne d'arcade (mini-jeux multijoueur)";
     case "classement":
       return "Voir le classement";
     default:

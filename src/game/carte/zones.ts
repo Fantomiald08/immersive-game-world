@@ -35,6 +35,7 @@ const o = (kind: Kind, x: number, y: number, e: Partial<Objet> = {}): Objet => {
   if (kind === "poste") return { ...base, agir: { k: "terminal" } };
   if (kind === "pcgamer") return { ...base, agir: { k: "combat" } };
   if (kind === "pclinux") return { ...base, agir: { k: "terminal_linux" } };
+  if (kind === "arcade") return { ...base, agir: { k: "arcade" } };
   return base;
 };
 const pnj = (
@@ -948,7 +949,7 @@ const SALLES_DEF: Zone[] = [
     T.venus,
     { c: "#e8a33d" },
     "B",
-    [o("lampadaire", 10, 3), o("plante", 1, 3), o("plante", 10, 8)],
+    [o("lampadaire", 10, 3), o("plante", 1, 3), o("plante", 10, 8), o("arcade", 10, 5)],
     [
       pnj(
         "ven-eleve",
