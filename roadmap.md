@@ -1,4 +1,5 @@
 # Isitech World — feuille de route
+- [x] Vérifier les dépendances de tous les écrans et outils : isoler l'arcade incomplète et corriger le chemin du gestionnaire de quiz IA sans changer les permissions ni les données.
 - [x] Corriger le chargement de /jeu : retirer les références d'énigmes non implémentées et conserver les copies d'import incomplètes hors du code actif.
 - [x] V2 : comptes, personnage, temps réel, quiz, combats, XP
 - [x] V3 : carte de l'école, personnages chibi, réseau Isitech, paramètres, tutoriel

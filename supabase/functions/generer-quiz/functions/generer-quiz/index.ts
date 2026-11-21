@@ -7,7 +7,7 @@
 //   ADMIN_IDS        facultatif, identifiants des admins séparés par des virgules (comme dans src/game/admins.ts)
 // SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY sont fournis automatiquement.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { nouvellesLimites, traiter } from "./handler.ts";
+import { nouvellesLimites, traiter } from "../../handler.ts";
 
 declare const Deno: {
   env: { get(k: string): string | undefined };
