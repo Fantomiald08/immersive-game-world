@@ -258,8 +258,7 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
         histFn.current({ k: "parler", pnj: n.id });
         return;
       }
-      const a = c.o.agir;
-      if (!a) return;
+      const a = c.o.agir!;
       switch (a.k) {
         case "porte":
           jouer("porte");
@@ -275,8 +274,7 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
           setTerminal("linux");
           break;
         case "arcade":
-          if (solo) annoncer("🕹️ La borne d'arcade est réservée au mode multijoueur.");
-          else setTerminal("arcade");
+          setTerminal("arcade");
           break;
         case "classement":
           void qc.invalidateQueries({ queryKey: ["heros"] });
@@ -290,13 +288,9 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
         case "texte":
           setFen({ k: "texte", titre: a.titre, texte: a.texte });
           break;
-        default: {
-          const actionNonGeree: never = a;
-          return actionNonGeree;
-        }
       }
     },
-    [aller, qc, annoncer, solo],
+    [aller, qc],
   );
 
   const onSortie = useCallback((s: Sortie) => aller(s.vers, s.arrivee), [aller]);
@@ -647,10 +641,11 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
           }}
         />
       )}
-      {terminal === "arcade" && !solo && (
+      {terminal === "arcade" && (
         <Arcade
           moi={{ id: moi.id, pseudo: moi.pseudo, niveau: moi.niveau }}
           onFermer={() => setTerminal(null)}
+          reseauAutorise={!solo}
         />
       )}
       {terminal === "linux" && <TerminalLinux onFermer={() => setTerminal(null)} />}
