@@ -1,4 +1,11 @@
-import { capaciteMode, type Equipe, type JeuId, type JoueurPartie, type ModeArcade } from "./types";
+import {
+  capaciteMode,
+  COULEURS_JOUEUR,
+  type Equipe,
+  type JeuId,
+  type JoueurPartie,
+  type ModeArcade,
+} from "./types";
 
 /** Ce que chaque joueur publie dans la présence de la room (voir reseau.ts). */
 export type Membre = {
@@ -42,11 +49,6 @@ export type RoomInfo = {
 
 export const JEU_DEFAUT: JeuId = "arene";
 export const MODE_DEFAUT: ModeArcade = "1v1";
-
-const COULEURS: Record<Equipe, string[]> = {
-  0: ["#4da3ff", "#8fe0ff"],
-  1: ["#ff6b6b", "#ffb36b"],
-};
 
 const parArrivee = (a: Membre, b: Membre) =>
   a.depuis - b.depuis || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
@@ -124,10 +126,11 @@ export function raisonBlocage(room: RoomVue): string | null {
 
 /** Les joueurs de la partie, avec leur équipe et leur couleur. */
 export function joueursDePartie(room: RoomVue): JoueurPartie[] {
-  const compte: Record<Equipe, number> = { 0: 0, 1: 0 };
+  const compte: Record<Equipe, number> = { 0: 0, 1: 0, 2: 0, 3: 0 };
   return room.joueurs.slice(0, room.max).map((m, i) => {
     const equipe = (i % 2) as Equipe;
-    const couleur = COULEURS[equipe][compte[equipe]++ % 2] ?? COULEURS[equipe][0]!;
+    const teintes = COULEURS_JOUEUR[equipe];
+    const couleur = compte[equipe]++ % 2 === 0 ? teintes[0] : teintes[1];
     return { id: m.id, pseudo: m.pseudo, equipe, couleur };
   });
 }

@@ -12,6 +12,27 @@ export function aleatoire(graine: number): () => number {
   };
 }
 
+/**
+ * Équipe qui a le meilleur score. `cle` donne une liste de nombres comparée dans l'ordre :
+ * le plus petit est le meilleur (mets un signe moins pour « plus grand = meilleur »).
+ * Renvoie null en cas d'égalité en tête.
+ */
+export function meilleureEquipe(
+  equipes: readonly Equipe[],
+  cle: (e: Equipe) => number[],
+): Equipe | null {
+  const cmp = (a: number[], b: number[]) => {
+    for (let i = 0; i < Math.max(a.length, b.length); i++) {
+      const d = (a[i] ?? 0) - (b[i] ?? 0);
+      if (d !== 0) return d;
+    }
+    return 0;
+  };
+  const tri = equipes.map((e) => ({ e, k: cle(e) })).sort((x, y) => cmp(x.k, y.k));
+  if (tri.length === 0 || (tri.length > 1 && cmp(tri[0]!.k, tri[1]!.k) === 0)) return null;
+  return tri[0]!.e;
+}
+
 export const borne = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
 /** Équipes encore représentées par des joueurs présents. */
