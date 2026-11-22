@@ -53,6 +53,18 @@ const org = (o: unknown, auteur: string) =>
   ligne(TYPE_ORG, "Organisation", JSON.stringify(o), auteur);
 
 describe("vue du réseau (avec les droits admin)", () => {
+  it("un quiz IA de son propre cours est immédiatement jouable pour son auteur seulement", () => {
+    const q = quiz("auto", "c1", "eleve");
+    q.text = JSON.stringify({ source: "ia", questions });
+    const r = assembler([cours("c1", "Réseaux", "eleve"), q], pseudos);
+    expect(construireVue(r, "eleve").quizJouables.map((j) => j.quiz.id)).toEqual(["auto"]);
+    expect(construireVue(r, "autre").quizJouables).toHaveLength(0);
+    expect(construireVue(r, "autre").quizAValider).toHaveLength(1);
+  });
+  it("un quiz manuel reste soumis à validation même pour son auteur", () => {
+    const r = assembler([cours("c1", "Réseaux", "eleve"), quiz("manuel", "c1", "eleve")], pseudos);
+    expect(construireVue(r, "eleve").quizJouables).toHaveLength(0);
+  });
   it("sans organisation, les catégories par défaut et les anciens cours apparaissent", () => {
     const v = construireVue(assembler([cours("c1", "Réseaux", "eleve")], pseudos));
     expect(v.orgExiste).toBe(false);

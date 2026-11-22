@@ -51,7 +51,7 @@ export function ReseauCombat({
 }) {
   const [connecte, setConnecte] = useState(false);
   const { data, isLoading, isError, refetch } = useReseau();
-  const vue = useMemo(() => (data ? construireVue(data) : null), [data]);
+  const vue = useMemo(() => (data ? construireVue(data, moi.id) : null), [data, moi.id]);
   const [mode, setMode] = useState<Mode>("melange");
   const [cleCat, setCleCat] = useState("");
   const [coursId, setCoursId] = useState("");

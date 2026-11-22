@@ -220,16 +220,17 @@ export async function deposerCours(
     contenu: c.contenu,
     ...(meta ? { fichier: meta } : {}),
   };
-  const { error } = await supabase.from("courses").insert({
+  const { data: cours, error } = await supabase.from("courses").insert({
     author_id: auteurId,
     title: c.titre,
     type: c.categorie,
     text: JSON.stringify(charge),
-  });
+  }).select("id").single();
   if (error) {
     if (meta) await supabase.from("courses").delete().eq("id", meta.ref);
     throw error;
   }
+  return cours.id;
 }
 
 export async function supprimerCours(c: CoursReseau) {

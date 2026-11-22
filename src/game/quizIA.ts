@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { genererQuizAutomatique } from "./quiz-auto.functions";
 import {
   nettoyerQuestions,
   type QuestionQuiz,
@@ -16,6 +17,14 @@ export async function genererQuizIA(e: {
   difficulte: "facile" | "normal" | "difficile" | "mixte";
 }): Promise<ReponseIA> {
   try {
+    if (e.coursId !== "test") {
+      const { data: cours } = await supabase.from("courses").select("author_id").eq("id", e.coursId).single();
+      const { data: auth } = await supabase.auth.getUser();
+      if (cours && auth.user?.id === cours.author_id) {
+        const result = await genererQuizAutomatique({ data: { coursId: e.coursId, nombre: e.nombre, enregistrer: false } });
+        return { ok: true, questions: nettoyerQuestions(result.questions, 20) };
+      }
+    }
     const { data, error } = await supabase.functions.invoke("generer-quiz", { body: e });
     if (error)
       return {
@@ -30,8 +39,8 @@ export async function genererQuizIA(e: {
     return questions.length
       ? { ok: true, questions }
       : { ok: false, message: "L'IA n'a renvoyé aucune question exploitable." };
-  } catch {
-    return { ok: false, message: "Impossible de contacter la fonction IA." };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Impossible de contacter la fonction IA." };
   }
 }
 

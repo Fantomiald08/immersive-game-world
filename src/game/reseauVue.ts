@@ -27,7 +27,7 @@ export type Vue = {
 };
 
 /** Combine les données du réseau avec l'organisation des admins : catégories finales, cours visibles, quiz validés. */
-export function construireVue(r: Reseau): Vue {
+export function construireVue(r: Reseau, joueurId?: string): Vue {
   const anciens = r.categories.map((c) => c.nom);
   const orgExiste = r.organisation !== null;
   const organisation =
@@ -55,7 +55,8 @@ export function construireVue(r: Reseau): Vue {
     if (!admin && q.auteurId !== cours.auteurId) continue; // un quiz posé par un inconnu sur le cours d'un autre est ignoré
     cours.quiz.push(q);
     if (cours.masque) continue;
-    (admin || organisation.quizValides.includes(q.id) ? quizJouables : quizAValider).push({
+    const entrainementPersonnel = q.source === "ia" && q.auteurId === joueurId && cours.auteurId === joueurId;
+    (admin || organisation.quizValides.includes(q.id) || entrainementPersonnel ? quizJouables : quizAValider).push({
       quiz: q,
       cours,
     });

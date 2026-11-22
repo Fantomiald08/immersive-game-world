@@ -1,5 +1,10 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { genererQuizAutomatique } from "@/game/quiz-auto.functions";
+import { extraireTexte, versDataUrl } from "@/game/fichiers";
+import { lireFichierIA } from "@/game/ia.functions";
+import { Button } from "@/components/ui/button";
 import { Apercu, GestionReseau } from "./GestionReseau";
 import { EditeurQuiz } from "./EditeurQuiz";
 import { estAdmin } from "@/game/admins";
@@ -115,7 +120,7 @@ function Interface({
   const [msgAdmin, setMsgAdmin] = useState("");
   const [editeur, setEditeur] = useState<{ cours: CoursVue; existant?: QuizReseau } | null>(null);
 
-  const v: Vue | null = useMemo(() => (data ? construireVue(data) : null), [data]);
+  const v: Vue | null = useMemo(() => (data ? construireVue(data, moi.id) : null), [data, moi.id]);
   const recharger = () => qc.invalidateQueries({ queryKey: ["reseau"] });
 
   /** Modification de l'organisation (admin) : on calcule la nouvelle version, on la publie, on recharge. */
@@ -320,9 +325,12 @@ function Interface({
             <FormDepot
               categories={v.categories}
               defaut={filtre === "Toutes" ? (v.categories[0]?.cle ?? "") : filtre}
-              onAnnuler={() => setVue({ k: "liste" })}
+              onAnnuler={() => { void recharger(); setVue({ k: "liste" }); }}
               onFait={async (c) => {
-                await deposerCours(moi.id, c);
+                const id = await deposerCours(moi.id, c);
+                return id;
+              }}
+              onTermine={async (c) => {
                 await recharger();
                 setVue({ k: "liste" });
                 setFiltre(c.categorie);
@@ -478,7 +486,7 @@ function Detail({
                   {q.questions.length} questions · {q.source === "ia" ? "✨ IA" : "✍ manuel"} · par{" "}
                   {q.auteur} ·{" "}
                   {valide(q) ? (
-                    <b className="text-green-700">✅ validé (jouable en combat)</b>
+                    <b className="text-green-700">{q.source === "ia" && q.auteurId === moi.id ? "✅ jouable pour toi" : "✅ validé (jouable en combat)"}</b>
                   ) : (
                     <b className="text-[#b36b00]">⏳ en attente de validation</b>
                   )}
@@ -583,11 +591,12 @@ function Detail({
   );
 }
 
-function FormDepot({
+export function FormDepot({
   categories,
   defaut,
   onAnnuler,
   onFait,
+  onTermine,
 }: {
   categories: Array<{ cle: string; nom: string }>;
   defaut: string;
@@ -598,8 +607,12 @@ function FormDepot({
     description: string;
     contenu: string;
     fichier: File | null;
-  }) => Promise<void>;
+  }) => Promise<string>;
+  onTermine: (c: { categorie: string }) => Promise<void>;
 }) {
+  const generer = useServerFn(genererQuizAutomatique);
+  const lireScan = useServerFn(lireFichierIA);
+  const [coursId, setCoursId] = useState<string | null>(null);
   const [titre, setTitre] = useState(""),
     [categorie, setCategorie] = useState(defaut),
     [description, setDescription] = useState(""),
@@ -607,6 +620,7 @@ function FormDepot({
   const [fichier, setFichier] = useState<File | null>(null);
   const [erreur, setErreur] = useState(""),
     [envoi, setEnvoi] = useState(false);
+  const [etape, setEtape] = useState("");
 
   const choisirFichier = (f: File | null) => {
     if (f && f.size > TAILLE_MAX) {
@@ -629,18 +643,34 @@ function FormDepot({
     setEnvoi(true);
     setErreur("");
     try {
-      await onFait({
+      let texte = contenu;
+      if (!coursId && fichier) {
+        setEtape("Lecture du fichier…");
+        const extrait = await extraireTexte(fichier);
+        if ("texte" in extrait) texte = [texte, extrait.texte].filter(Boolean).join("\n");
+        else {
+          const lu = await lireScan({ data: { dataUrl: await versDataUrl(fichier), mime: fichier.type, nom: fichier.name } });
+          if (lu.erreur || !lu.texte) throw new Error(lu.erreur || "Ce fichier n'a pas pu être lu. Ajoute le texte du cours.");
+          texte = [texte, lu.texte].filter(Boolean).join("\n");
+        }
+      }
+      if (!coursId && [description, texte].join("\n").trim().length < 80)
+        throw new Error("Ajoute au moins 80 caractères de texte au cours pour générer son quiz.");
+      setEtape("Enregistrement du cours…");
+      const id = coursId ?? await onFait({
         titre: titre.trim().slice(0, 100),
         categorie,
         description: description.trim().slice(0, 300),
-        contenu: contenu.slice(0, 8000),
+        contenu: texte.slice(0, 12000),
         fichier,
       });
+      setCoursId(id);
+      setEtape("Création du quiz IA…");
+      await generer({ data: { coursId: id, nombre: 8 } });
+      await onTermine({ categorie });
     } catch (e) {
       setErreur(
-        e instanceof Error && e.message.includes("2 Mo")
-          ? e.message
-          : "Le dépôt a échoué. Réessaie.",
+        e instanceof Error ? e.message : "Le dépôt ou la génération du quiz a échoué.",
       );
       setEnvoi(false);
     }
@@ -698,18 +728,17 @@ function FormDepot({
           placeholder="Colle ici le texte de ton cours. Plus il est détaillé, meilleur sera le quiz."
         />
       </label>
-      {erreur && <p className="text-red-700">{erreur}</p>}
+      {erreur && <p role="alert" className="text-red-700">{coursId && "Ton cours est enregistré ; seul le quiz reste à générer. "}{erreur}</p>}
       <div className="flex gap-2">
-        <button
-          className="rounded bg-[#e07a2b] px-4 py-2 text-white disabled:opacity-60"
+        <Button
           disabled={envoi}
           onClick={go}
         >
-          {envoi ? "Envoi…" : "📥 Déposer sur le réseau"}
-        </button>
-        <button className="rounded border-2 border-[#2b4b9a] px-4 py-2" onClick={onAnnuler}>
+          {envoi ? etape : coursId ? "Réessayer le quiz IA" : "📥 Déposer et générer le quiz"}
+        </Button>
+        <Button variant="outline" disabled={envoi} onClick={onAnnuler}>
           Annuler
-        </button>
+        </Button>
       </div>
     </div>
   );
