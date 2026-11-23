@@ -643,7 +643,7 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
       )}
       {terminal === "arcade" && (
         <Arcade
-          moi={{ id: moi.id, pseudo: moi.pseudo, niveau: moi.niveau }}
+          moi={{ id: moi.id, pseudo: moi.pseudo, niveau: moi.niveau, apparence: moi.apparence }}
           onFermer={() => setTerminal(null)}
           reseauAutorise={!solo}
         />
