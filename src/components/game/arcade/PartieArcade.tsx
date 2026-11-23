@@ -5,13 +5,7 @@ import { Effets } from "@/game/arcade/fx";
 import { abandonner, avancer, melange } from "@/game/arcade/moteur";
 import type { ArcadeReseau } from "@/game/arcade/reseau";
 import { joueursDePartie, type RoomVue } from "@/game/arcade/room";
-import {
-  COULEUR_EQUIPE,
-  type EtatBase,
-  type Jeu,
-  type PhasePartie,
-  type Resultat,
-} from "@/game/arcade/types";
+import type { EtatBase, Jeu, PhasePartie, Resultat } from "@/game/arcade/types";
 
 const PAS = 1 / 60;
 /** L'hôte envoie l'état 8 fois par seconde (2 fois par seconde une fois la partie finie). */
@@ -61,18 +55,18 @@ export function PartieArcade({
   const { envoyerEntree, envoyerSnapshot, abonner } = reseau;
 
   // Touches : clavier + boutons à l'écran. L'hôte les lit directement, les autres les envoient.
-  const { appuyer } = useControles(true, (bits) => {
+  const { appuyer } = useControles(resultat === null, (bits) => {
     mesTouches.current = bits;
     if (!hote) envoyerEntree(manche, bits);
   });
   // Les touches maintenues sont renvoyées régulièrement, au cas où un message se perdrait.
   useEffect(() => {
-    if (hote) return;
+    if (hote || resultat !== null) return;
     const t = setInterval(() => {
       if (mesTouches.current !== 0) envoyerEntree(manche, mesTouches.current);
     }, RENVOI_TOUCHES);
     return () => clearInterval(t);
-  }, [hote, manche, envoyerEntree]);
+  }, [hote, manche, resultat, envoyerEntree]);
 
   // Boucle principale : un nouveau départ à chaque nouvelle partie (manche) ou changement d'hôte.
   useEffect(() => {
