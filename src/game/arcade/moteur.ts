@@ -1,4 +1,5 @@
-import type { EtatBase, Equipe, Jeu, JoueurPartie } from "./types";
+import { panneau, texte } from "./rendu/pixel";
+import type { EtatBase, Equipe, EvenementFx, Jeu, JoueurPartie } from "./types";
 
 /** Générateur pseudo-aléatoire reproductible (même graine = même partie). */
 export function aleatoire(graine: number): () => number {
@@ -31,6 +32,12 @@ export function meilleureEquipe(
   const tri = equipes.map((e) => ({ e, k: cle(e) })).sort((x, y) => cmp(x.k, y.k));
   if (tri.length === 0 || (tri.length > 1 && cmp(tri[0]!.k, tri[1]!.k) === 0)) return null;
   return tri[0]!.e;
+}
+
+/** Ajoute un événement visuel à l'état (on n'en garde que 24, les plus récents). */
+export function emettre(s: EtatBase, e: Omit<EvenementFx, "n">): void {
+  s.ev.push({ ...e, n: ++s.evN });
+  if (s.ev.length > 24) s.ev.splice(0, s.ev.length - 24);
 }
 
 export const borne = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
@@ -111,7 +118,8 @@ export function melange<T>(a: T, b: T, t: number, cle = ""): T {
     for (const k of Object.keys(b)) {
       const va = (a as Record<string, unknown>)[k];
       const vb = (b as Record<string, unknown>)[k];
-      r[k] = va === undefined ? vb : melange(va, vb, t, k);
+      // Les événements ne se mélangent pas : on garde toujours la liste la plus récente.
+      r[k] = va === undefined || k === "ev" ? vb : melange(va, vb, t, k);
     }
     return r as T;
   }
@@ -138,30 +146,30 @@ export function dessinerHud(
   hauteur: number,
 ): void {
   ctx.save();
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
   const restant = s.duree - s.t;
-  ctx.fillStyle = "rgba(0,0,0,0.6)";
-  ctx.fillRect(largeur / 2 - 40, 4, 80, 26);
-  ctx.fillStyle = s.phase === "jeu" && restant <= 10 ? "#ff6b6b" : "#ffd166";
-  ctx.font = "bold 20px monospace";
-  ctx.fillText(formaterTemps(Math.ceil(restant)), largeur / 2, 18);
+  const urgent = s.phase === "jeu" && restant <= 10;
+  panneau(ctx, largeur / 2 - 38, 6, 76, 26, urgent ? "#ff6b6b" : "#ffd166");
+  texte(
+    ctx,
+    formaterTemps(Math.ceil(restant)),
+    largeur / 2,
+    20,
+    20,
+    urgent && Math.floor(s.t * 3) % 2 === 0 ? "#ff6b6b" : "#ffd166",
+  );
   if (s.phase === "compte") {
-    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
     ctx.fillRect(0, 0, largeur, hauteur);
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 120px monospace";
-    ctx.fillText(String(Math.max(1, Math.ceil(s.compte))), largeur / 2, hauteur / 2);
+    const n = Math.max(1, Math.ceil(s.compte));
+    const k = s.compte - Math.floor(s.compte);
+    texte(ctx, String(n), largeur / 2, hauteur / 2, Math.round(120 + k * 40), "#ffffff");
+    texte(ctx, "PRÊT ?", largeur / 2, hauteur / 2 + 90, 22, "#ffd166");
   } else if (s.phase === "jeu" && s.t < 0.7) {
-    ctx.fillStyle = "#4fd1c5";
-    ctx.font = "bold 90px monospace";
-    ctx.fillText("GO !", largeur / 2, hauteur / 2);
+    texte(ctx, "GO !", largeur / 2, hauteur / 2, 90, "#4fd1c5");
   } else if (s.phase === "fini") {
-    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
     ctx.fillRect(0, hauteur / 2 - 40, largeur, 80);
-    ctx.fillStyle = "#ffd166";
-    ctx.font = "bold 44px monospace";
-    ctx.fillText("PARTIE TERMINÉE", largeur / 2, hauteur / 2);
+    texte(ctx, "PARTIE TERMINÉE", largeur / 2, hauteur / 2, 44, "#ffd166");
   }
   ctx.restore();
 }

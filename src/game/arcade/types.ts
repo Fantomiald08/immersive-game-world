@@ -3,6 +3,9 @@
 export type JeuId = "arene" | "course" | "combat";
 /** 1v1 : chacun pour soi à deux. Équipes : 2 contre 2. */
 export type ModeArcade = "1v1" | "equipes";
+import type { Apparence } from "../apparence";
+import type { Effets } from "./fx";
+
 /** Jusqu'à 4 équipes : 2 (1v1, 2v2) ou 4 (1v1v1v1, chacun pour soi). */
 export type Equipe = 0 | 1 | 2 | 3;
 export const COULEUR_EQUIPE: Record<Equipe, string> = {
@@ -34,6 +37,38 @@ export type JoueurPartie = {
   absent?: boolean;
   /** Vrai pour un joueur piloté par l'ordinateur (mode solo). */
   ia?: boolean;
+  /** Apparence du personnage d'ISITECH WORLD (sinon une apparence dérivée de l'identifiant). */
+  apparence?: Apparence;
+};
+
+/**
+ * Événement de jeu (impact, explosion, KO…) émis par la simulation pour déclencher des effets visuels.
+ * Chaque événement a un numéro croissant : l'affichage ne traite que ceux qu'il n'a pas encore vus,
+ * ce qui marche aussi pour les joueurs qui reçoivent l'état par le réseau.
+ */
+export type EvenementFx = {
+  n: number;
+  k:
+    | "tir"
+    | "impact"
+    | "parade"
+    | "explosion"
+    | "ko"
+    | "kill"
+    | "respawn"
+    | "choc"
+    | "boost"
+    | "huile"
+    | "tour"
+    | "spawn";
+  x: number;
+  y: number;
+  /** Intensité (dégâts, force du choc…). */
+  v?: number;
+  /** Couleur utile (équipe, arme). */
+  c?: string;
+  /** Joueur concerné. */
+  qui?: string;
 };
 
 /** « Léo » si l'équipe n'a qu'un joueur, sinon « l'équipe bleue ». */
@@ -98,6 +133,9 @@ export type EtatBase = {
   duree: number;
   joueurs: JoueurPartie[];
   resultat: Resultat | null;
+  /** Derniers événements (les plus anciens sont oubliés) et compteur. Servent aux effets visuels. */
+  ev: EvenementFx[];
+  evN: number;
 };
 
 export type BoutonsEcran = { a: string; b?: string; c?: string; haut?: string; bas?: string };
@@ -122,7 +160,7 @@ export interface Jeu {
   termine?(s: EtatBase): boolean;
   /** Calcule le classement final. */
   finir(s: EtatBase): Resultat;
-  dessiner(ctx: CanvasRenderingContext2D, s: EtatBase, moi: string): void;
+  dessiner(ctx: CanvasRenderingContext2D, s: EtatBase, moi: string, fx: Effets): void;
 }
 
 export const JEUX_IDS: JeuId[] = ["arene", "course", "combat"];

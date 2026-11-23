@@ -13,8 +13,9 @@ import {
 } from "./room";
 import { BTN, DUREE_PARTIE, type JoueurPartie } from "./types";
 import { JEUX, LISTE_JEUX } from "./jeux";
-import type { EtatArene } from "./jeux/arene";
-import type { EtatCourse } from "./jeux/course";
+import { ARENES, RAYON, type EtatArene } from "./jeux/arene";
+import { creerCerveau } from "./ia";
+import { DUREE_COURSE, type EtatCourse } from "./jeux/course";
 import type { EtatCombat } from "./jeux/combat";
 
 const m = (id: string, depuis: number, extra: Partial<Membre> = {}): Membre => ({
@@ -206,11 +207,11 @@ describe("moteur de partie", () => {
     expect([a(), a(), a()]).toEqual([b(), b(), b()]);
   });
 
-  it("chaque mini-jeu dure 120 s et se décrit pour l'interface", () => {
+  it("l'arène et le combat durent 120 s, la course 3 min 30 (3 tours de grande arène)", () => {
     for (const j of LISTE_JEUX) {
       expect(j.aide.length).toBeGreaterThan(0);
       expect(j.boutons.a).toBeTruthy();
-      expect(j.creer(duo, 1).duree).toBe(120);
+      expect(j.creer(duo, 1).duree).toBe(j.id === "course" ? DUREE_COURSE : 120);
     }
   });
 });
@@ -282,11 +283,12 @@ describe("Arène multi-rounds", () => {
     for (let i = 0; i < 40; i++) avancer(jeu, s, { a: BTN.droite }, 1 / 60);
     expect(s.p[0]!.arme).toBe("sniper");
     expect(s.p[0]!.munitions).toBe(5);
-    // Foncer vers un pilier de l'arène 1 (x 560-600, y 120-160) sans le traverser
+    // Foncer vers un rack de serveurs de l'arène 1 sans le traverser
+    const rack = ARENES[0]!.murs[2]!;
     s.p[0]!.x = 300;
-    s.p[0]!.y = 140;
-    for (let i = 0; i < 240; i++) avancer(jeu, s, { a: BTN.droite }, 1 / 60);
-    expect(s.p[0]!.x).toBeCloseTo(560 - 12, 0);
+    s.p[0]!.y = rack.y + rack.h / 2;
+    for (let i = 0; i < 400; i++) avancer(jeu, s, { a: BTN.droite }, 1 / 60);
+    expect(s.p[0]!.x).toBeCloseTo(rack.x - RAYON, 0);
   });
 
   it("le classement et le vainqueur suivent les kills", () => {
@@ -300,30 +302,29 @@ describe("Arène multi-rounds", () => {
   });
 });
 
-/** Pilote automatique : gaz à fond, corrige sa trajectoire pour rester au centre de la route. */
-const pilote = (c: { x: number; v: number }): number => {
-  const braque = c.x < -0.08 ? BTN.droite : c.x > 0.08 ? BTN.gauche : 0;
-  return (Math.abs(c.x) > 0.8 && c.v > 40 ? 0 : BTN.haut) | braque;
+/** Un pilote automatique (l'IA de la course) pour jouer une course complète. */
+const pilotes = (ids: string[]) => {
+  const c = new Map(ids.map((id, i) => [id, creerCerveau("course", id, 11 + i)]));
+  return (s: EtatCourse, id: string) => c.get(id)!(s, 1 / 60);
 };
 
 describe("Course de véhicules", () => {
-  it("un pilote qui accélère termine 3 tours dans la limite des 120 s", () => {
-    const s = jouer("course", duo, 130, (_t, e) => {
-      const v = (e as EtatCourse).v;
-      return { a: pilote(v[0]!), b: pilote(v[1]!) };
-    }) as EtatCourse;
-    const fins = s.v.map((c) => c.fin);
+  it("un pilote termine les 3 tours dans la limite de temps de la course", () => {
+    const p = pilotes(["a", "b"]);
+    const s = jouer("course", duo, 225, (_t, e) => ({
+      a: p(e as EtatCourse, "a"),
+      b: p(e as EtatCourse, "b"),
+    })) as EtatCourse;
     expect(s.phase).toBe("fini");
-    for (const f of fins) {
-      expect(f).toBeGreaterThan(40);
-      expect(f).toBeLessThan(120);
+    for (const f of s.v.map((c) => c.fin)) {
+      expect(f).toBeGreaterThan(100);
+      expect(f).toBeLessThan(DUREE_COURSE);
     }
   });
 
   it("le plus rapide gagne, les non-arrivés sont classés à la distance", () => {
-    const s = jouer("course", duo, 130, (_t, e) => ({
-      a: pilote((e as EtatCourse).v[0]!),
-    })) as EtatCourse;
+    const p = pilotes(["a"]);
+    const s = jouer("course", duo, 225, (_t, e) => ({ a: p(e as EtatCourse, "a") })) as EtatCourse;
     expect(s.v[0]!.fin).toBeGreaterThan(0);
     expect(s.v[1]!.fin).toBe(-1);
     const r = s.resultat!;

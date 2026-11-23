@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Apparence } from "@/game/apparence";
 import { supabase } from "@/integrations/supabase/client";
 import {
   construireRoom,
@@ -55,7 +56,7 @@ const REGLAGES_DEFAUT: Reglages = {
 const DELAI_ENTREE = 100;
 const DELAI_ROOM_INTROUVABLE = 2500;
 
-type Moi = { id: string; pseudo: string; niveau: number };
+type Moi = { id: string; pseudo: string; niveau: number; apparence?: Apparence | undefined };
 
 export function useArcade(moi: Moi, actif = true) {
   const [etat, setEtat] = useState<EtatReseau>("connexion");
@@ -68,6 +69,10 @@ export function useArcade(moi: Moi, actif = true) {
   const [reglages, setReglages] = useState<Reglages>(REGLAGES_DEFAUT);
   const [message, setMessage] = useState<string | null>(null);
 
+  // L'apparence ne relance pas la présence à chaque rafraîchissement du profil : seule sa valeur compte.
+  const apparenceRef = useRef(moi.apparence);
+  apparenceRef.current = moi.apparence;
+  const cleApparence = JSON.stringify(moi.apparence ?? null);
   const lobby = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const canal = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const abonnes = useRef<Abonne>({});
@@ -176,9 +181,10 @@ export function useArcade(moi: Moi, actif = true) {
       pseudo: moi.pseudo,
       niveau: moi.niveau,
       depuis: depuis.current,
+      ...(apparenceRef.current ? { apparence: apparenceRef.current } : {}),
     };
     void c.track(proprio ? { ...base, ...reglages } : base);
-  }, [canalPret, proprio, reglages, moi.id, moi.pseudo, moi.niveau]);
+  }, [canalPret, proprio, reglages, moi.id, moi.pseudo, moi.niveau, cleApparence]);
 
   /* Arrivé trop tard dans une room pleine : on ressort. */
   useEffect(() => {

@@ -1,3 +1,4 @@
+import type { Apparence } from "../apparence";
 import {
   capaciteMode,
   COULEURS_JOUEUR,
@@ -12,6 +13,8 @@ export type Membre = {
   id: string;
   pseudo: string;
   niveau: number;
+  /** Apparence du personnage, pour que tout le monde voie les vrais personnages en jeu. */
+  apparence?: Apparence;
   /** Heure d'arrivée (ms) : sert à choisir un nouveau propriétaire si le créateur part. */
   depuis: number;
   /** Réglages de la room : seul le propriétaire les publie. */
@@ -131,7 +134,13 @@ export function joueursDePartie(room: RoomVue): JoueurPartie[] {
     const equipe = (i % 2) as Equipe;
     const teintes = COULEURS_JOUEUR[equipe];
     const couleur = compte[equipe]++ % 2 === 0 ? teintes[0] : teintes[1];
-    return { id: m.id, pseudo: m.pseudo, equipe, couleur };
+    return {
+      id: m.id,
+      pseudo: m.pseudo,
+      equipe,
+      couleur,
+      ...(m.apparence ? { apparence: m.apparence } : {}),
+    };
   });
 }
 

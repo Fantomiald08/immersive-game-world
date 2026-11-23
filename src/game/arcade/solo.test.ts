@@ -11,7 +11,7 @@ import { creerCerveau } from "./ia";
 import { BTN, type JeuId } from "./types";
 import type { EtatArene } from "./jeux/arene";
 import type { EtatCombat } from "./jeux/combat";
-import type { EtatCourse } from "./jeux/course";
+import { DUREE_COURSE, type EtatCourse } from "./jeux/course";
 
 const moi = { id: "moi", pseudo: "Léo" };
 const DT = 1 / 60;
@@ -64,7 +64,7 @@ describe("formats solo", () => {
         const p = creerPartieSolo(jeu, moi, f.id, 1);
         expect(p.etat.joueurs).toHaveLength(f.ia + 1);
         expect(p.cerveaux.size).toBe(f.ia);
-        expect(p.etat.duree).toBe(120);
+        expect(p.etat.duree).toBe(jeu === "course" ? DUREE_COURSE : 120);
       }
   });
 });
@@ -135,22 +135,22 @@ describe("IA de l'arène", () => {
 
 describe("IA de la course", () => {
   it("1v1 : l'IA suit le parcours et finit les 3 tours avant la limite", () => {
-    const { p } = partie("course", "1v1", 2);
+    const { p } = partie("course", "1v1", 2, () => 0, 225);
     const s = p.etat as EtatCourse;
-    expect(s.v[1]!.fin).toBeGreaterThan(40);
-    expect(s.v[1]!.fin).toBeLessThan(120);
+    expect(s.v[1]!.fin).toBeGreaterThan(100);
+    expect(s.v[1]!.fin).toBeLessThan(DUREE_COURSE);
     expect(s.resultat?.vainqueur).toBe(1);
   });
 
   it("1v1v1v1 : les 3 IA terminent toutes, sans rester bloquées hors piste", () => {
-    const { p } = partie("course", "ffa", 6);
+    const { p } = partie("course", "ffa", 6, () => 0, 225);
     const s = p.etat as EtatCourse;
-    expect(s.v.slice(1).every((c) => c.fin > 0 && c.fin < 120)).toBe(true);
+    expect(s.v.slice(1).every((c) => c.fin > 0 && c.fin < DUREE_COURSE)).toBe(true);
     expect(s.resultat?.lignes).toHaveLength(4);
   });
 
   it("2v2 : aucune IA ne freine jamais (ni sur un allié, ni sur un adversaire)", () => {
-    const { vus } = partie("course", "2v2", 3);
+    const { vus } = partie("course", "2v2", 3, () => 0, 225);
     for (const id of ["ia-1", "ia-2", "ia-3"]) {
       expect(vus[id]! & BTN.haut).toBeTruthy();
       expect(vus[id]! & BTN.bas).toBe(0);

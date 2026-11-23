@@ -1,3 +1,4 @@
+import type { Apparence } from "../apparence";
 import { creerCerveau, type Cerveau } from "./ia";
 import { avancer } from "./moteur";
 import { JEUX } from "./jeux";
@@ -14,6 +15,7 @@ import {
  * Ce module n'utilise ni Supabase ni aucun canal réseau.
  */
 export type FormatSolo = "1v1" | "2v2" | "ffa";
+export type MoiSolo = { id: string; pseudo: string; apparence?: Apparence | undefined };
 
 export const FORMATS_SOLO: ReadonlyArray<{
   id: FormatSolo;
@@ -29,10 +31,7 @@ export const FORMATS_SOLO: ReadonlyArray<{
 const NOMS_IA = ["IA Rex", "IA Nova", "IA Zed"] as const;
 
 /** Les joueurs d'une partie solo : toi en premier, puis les IA (alliée d'abord en 2v2). */
-export function joueursSolo(
-  moi: { id: string; pseudo: string },
-  format: FormatSolo,
-): JoueurPartie[] {
+export function joueursSolo(moi: MoiSolo, format: FormatSolo): JoueurPartie[] {
   // Équipe de chaque joueur, dans l'ordre : toi, puis les IA.
   const equipes: Equipe[] =
     format === "1v1" ? [0, 1] : format === "2v2" ? [0, 0, 1, 1] : [0, 1, 2, 3];
@@ -41,7 +40,13 @@ export function joueursSolo(
     const teintes = COULEURS_JOUEUR[equipe];
     const couleur = compte[equipe]++ % 2 === 0 ? teintes[0] : teintes[1];
     return i === 0
-      ? { id: moi.id, pseudo: moi.pseudo, equipe, couleur }
+      ? {
+          id: moi.id,
+          pseudo: moi.pseudo,
+          equipe,
+          couleur,
+          ...(moi.apparence ? { apparence: moi.apparence } : {}),
+        }
       : { id: `ia-${i}`, pseudo: NOMS_IA[(i - 1) % NOMS_IA.length]!, equipe, couleur, ia: true };
   });
 }
@@ -58,7 +63,7 @@ export type PartieSolo = {
 
 export function creerPartieSolo(
   jeuId: JeuId,
-  moi: { id: string; pseudo: string },
+  moi: MoiSolo,
   format: FormatSolo,
   graine: number,
 ): PartieSolo {
