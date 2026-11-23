@@ -15,7 +15,7 @@ const DISTANCE_IDEALE = {
 
 /**
  * Bot de l'arène : ramasse une arme (ou un soin), puis poursuit l'adversaire le plus proche,
- * garde sa distance idéale, tire quand la ligne est dégagée et esquive quand il est blessé.
+ * contourne les obstacles, garde sa distance idéale, tire quand la ligne est dégagée et esquive quand il est blessé.
  * Il ne vise jamais un coéquipier et ne tire pas si un coéquipier est sur la ligne de tir.
  */
 export function cerveauArene(id: string, graine: number): Cerveau {
@@ -74,6 +74,7 @@ export function cerveauArene(id: string, graine: number): Cerveau {
     if (besoinSoin || besoinArme) {
       let meilleur = Infinity;
       for (const o of s.objets) {
+        if ((o.delai ?? 0) > 0) continue;
         const veut = besoinSoin ? o.type === "soin" : o.type !== "soin";
         if (!veut) continue;
         const d = distance(moi.x, moi.y, o.x, o.y);
@@ -129,7 +130,18 @@ export function cerveauArene(id: string, graine: number): Cerveau {
       if (moi.pv < 40 && dCible < 120 && moi.dash <= 0 && rnd() < 0.4) bouton |= BTN.b;
     }
 
-    // Coincé contre un mur : on contourne un instant en tournant la direction de 90°.
+    // Contournement prédictif d'un mur devant le bot, + secours s'il reste coincé.
+    const norme = Math.hypot(vx, vy);
+    if (norme > 1e-6 && memoire.detour <= 0) {
+      const ux = vx / norme;
+      const uy = vy / norme;
+      if (segmentBloque(moi.x, moi.y, moi.x + ux * 28, moi.y + uy * 28, murs)) {
+        const libreG = !segmentBloque(moi.x, moi.y, moi.x - uy * 34, moi.y + ux * 34, murs);
+        const libreD = !segmentBloque(moi.x, moi.y, moi.x + uy * 34, moi.y - ux * 34, murs);
+        const sens = libreG && !libreD ? 1 : !libreG && libreD ? -1 : memoire.strafe;
+        [vx, vy] = [-uy * sens, ux * sens];
+      }
+    }
     if (memoire.immobile > 0.35 && (vx || vy)) {
       memoire.detour = 0.5;
       memoire.detourSens = rnd() < 0.5 ? 1 : -1;
