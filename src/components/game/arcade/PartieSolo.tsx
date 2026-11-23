@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { useControles } from "@/components/game/arcade/useControles";
 import { VuePartie } from "@/components/game/arcade/VuePartie";
 import { JEUX } from "@/game/arcade/jeux";
+import { Effets } from "@/game/arcade/fx";
 import { avancerSolo, creerPartieSolo, type FormatSolo } from "@/game/arcade/partieSolo";
+import type { Apparence } from "@/game/apparence";
 import type { JeuId, Resultat } from "@/game/arcade/types";
 
 const PAS = 1 / 60;
@@ -23,7 +25,7 @@ export function PartieSolo({
 }: {
   jeuId: JeuId;
   format: FormatSolo;
-  moi: { id: string; pseudo: string };
+  moi: { id: string; pseudo: string; apparence?: Apparence | undefined };
   graine: number;
   onRejouer: () => void;
   onChanger: () => void;
@@ -32,6 +34,8 @@ export function PartieSolo({
   const canvas = useRef<HTMLCanvasElement>(null);
   const [resultat, setResultat] = useState<Resultat | null>(null);
   const touches = useRef(0);
+  // L'apparence est figée à l'ouverture : un rafraîchissement du profil ne doit jamais relancer la partie.
+  const apparence = useRef(moi.apparence);
   const { appuyer } = useControles(true, (bits) => {
     touches.current = bits;
   });
@@ -41,7 +45,13 @@ export function PartieSolo({
     const c = canvas.current;
     const ctx = c?.getContext("2d");
     if (!c || !ctx) return;
-    const partie = creerPartieSolo(jeuId, { id: moi.id, pseudo: moi.pseudo }, format, graine);
+    const partie = creerPartieSolo(
+      jeuId,
+      { id: moi.id, pseudo: moi.pseudo, apparence: apparence.current },
+      format,
+      graine,
+    );
+    const fx = new Effets();
     let raf = 0;
     let vivant = true;
     let fini = false;
@@ -49,7 +59,9 @@ export function PartieSolo({
     let reste = 0;
     const boucle = (now: number) => {
       if (!vivant) return;
-      reste += Math.min(0.1, (now - derniere) / 1000);
+      // Pas de temps plafonné à 50 ms : un onglet en veille ne fait jamais « sauter » la partie.
+      const dtImage = Math.min(0.05, (now - derniere) / 1000);
+      reste += dtImage;
       derniere = now;
       let n = 0;
       while (reste >= PAS && n++ < 6) {
@@ -57,8 +69,9 @@ export function PartieSolo({
         reste -= PAS;
       }
       if (n >= 6) reste = 0;
+      fx.maj(dtImage);
       ctx.clearRect(0, 0, c.width, c.height);
-      jeu.dessiner(ctx, partie.etat, moi.id);
+      jeu.dessiner(ctx, partie.etat, moi.id, fx);
       if (partie.etat.phase === "fini") {
         fini = true;
         setResultat(partie.etat.resultat);

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { Apparence } from "@/game/apparence";
 import { PartieSolo } from "@/components/game/arcade/PartieSolo";
 import { LISTE_JEUX } from "@/game/arcade/jeux";
 import { FORMATS_SOLO, type FormatSolo } from "@/game/arcade/partieSolo";
@@ -13,7 +14,7 @@ export function ArcadeSolo({
   onRetour,
   onFermer,
 }: {
-  moi: { id: string; pseudo: string };
+  moi: { id: string; pseudo: string; apparence?: Apparence | undefined };
   onRetour: () => void;
   onFermer: () => void;
 }) {

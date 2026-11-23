@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { VuePartie } from "@/components/game/arcade/VuePartie";
 import { useControles } from "@/components/game/arcade/useControles";
+import { Effets } from "@/game/arcade/fx";
 import { abandonner, avancer, melange } from "@/game/arcade/moteur";
 import type { ArcadeReseau } from "@/game/arcade/reseau";
 import { joueursDePartie, type RoomVue } from "@/game/arcade/room";
@@ -80,6 +81,7 @@ export function PartieArcade({
     if (!c || !ctx) return;
     recu.current = { prev: null, cur: null, quand: 0 };
     entrees.current = {};
+    const fx = new Effets();
     let derniereEnvoi = 0;
     let derniereImage = performance.now();
     let reste = 0;
@@ -90,7 +92,8 @@ export function PartieArcade({
     const lancer = (arret: () => void) => {
       const boucle = (now: number) => {
         if (!vivant) return;
-        const dt = Math.min(0.1, (now - derniereImage) / 1000);
+        // Pas de temps plafonné à 50 ms : un onglet en veille ne fait jamais « sauter » la partie.
+        const dt = Math.min(0.05, (now - derniereImage) / 1000);
         derniereImage = now;
         let etat: EtatBase | null = null;
         if (hote && sim.current) {
@@ -117,11 +120,18 @@ export function PartieArcade({
           const t = Math.min(1, (now - r.quand) / INTERVALLE_ETAT);
           etat = r.prev && r.prev !== r.cur ? melange(r.prev, r.cur!, t) : r.cur;
           // Les valeurs « logiques » (phase, résultat) viennent toujours du dernier état reçu.
-          etat = { ...etat!, phase: r.cur!.phase, resultat: r.cur!.resultat };
+          etat = {
+            ...etat!,
+            phase: r.cur!.phase,
+            resultat: r.cur!.resultat,
+            ev: r.cur!.ev,
+            evN: r.cur!.evN,
+          };
         }
         if (etat) {
           ctx.clearRect(0, 0, c.width, c.height);
-          jeu.dessiner(ctx, etat, moiId);
+          fx.maj(dt);
+          jeu.dessiner(ctx, etat, moiId, fx);
           if (etat.phase !== phaseVue) {
             phaseVue = etat.phase;
             onPhaseRef.current(etat.phase);

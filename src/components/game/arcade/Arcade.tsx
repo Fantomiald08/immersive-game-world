@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { Apparence } from "@/game/apparence";
 import { ArcadeSolo } from "@/components/game/arcade/ArcadeSolo";
 import { CadreArcade } from "@/components/game/arcade/CadreArcade";
 import { PartieArcade } from "@/components/game/arcade/PartieArcade";
@@ -7,7 +8,7 @@ import { useArcade } from "@/game/arcade/reseau";
 import { equipeDe, pleine, raisonBlocage, type RoomInfo } from "@/game/arcade/room";
 import { COULEUR_EQUIPE, type ModeArcade, type PhasePartie } from "@/game/arcade/types";
 
-type Moi = { id: string; pseudo: string; niveau: number };
+type Moi = { id: string; pseudo: string; niveau: number; apparence?: Apparence | undefined };
 
 const nomMode = (m: ModeArcade) => (m === "1v1" ? "1v1" : "Équipes 2v2");
 
