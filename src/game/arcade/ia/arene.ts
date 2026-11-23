@@ -10,6 +10,7 @@ const DISTANCE_IDEALE = {
   mitraillette: 150,
   pompe: 90,
   sniper: 320,
+  roquette: 230,
 } as const;
 
 /**
