@@ -162,8 +162,6 @@ function creer(joueurs: JoueurPartie[]): EtatCombat {
   return s;
 }
 
-const equipeDe = (s: EtatCombat, id: string): Equipe =>
-  s.joueurs.find((j) => j.id === id)?.equipe ?? 0;
 const vivants = (s: EtatCombat, e: Equipe) =>
   s.f.filter((c, i) => !c.ko && !s.joueurs[i]!.absent && s.joueurs[i]!.equipe === e);
 
@@ -264,18 +262,18 @@ function pas(base: EtatBase, entrees: Readonly<Record<string, number>>, dt: numb
     }
     const e = entrees[c.id] ?? 0;
 
-    // Regarde toujours l'adversaire le plus proche.
+    // Regarde toujours l'adversaire le plus proche une fois l'étourdissement terminé.
     let proche: Combattant | null = null;
     s.f.forEach((q, k) => {
       if (q.ko || s.joueurs[k]!.equipe === j.equipe) return;
       if (!proche || Math.abs(q.x - c.x) < Math.abs(proche.x - c.x)) proche = q;
     });
     const cible = proche as Combattant | null;
-    if (cible && Math.abs(cible.x - c.x) > 6 && !c.etourdi) c.face = cible.x > c.x ? 1 : -1;
+    if (cible && Math.abs(cible.x - c.x) > 6 && c.etourdi <= 0) c.face = cible.x > c.x ? 1 : -1;
 
     if (c.etourdi > 0) {
       c.garde = false;
-      c.etourdi -= dt;
+      c.etourdi = Math.max(0, c.etourdi - dt);
       c.vx *= 0.88;
     } else {
       c.garde = sol && presse(e, BTN.bas) && !c.atk;
@@ -397,11 +395,11 @@ function finir(base: EtatBase): Resultat {
       const gy = y.j.equipe === vainqueur ? 0 : 1;
       return gx - gy || y.c.pv - x.c.pv;
     })
-    .map(({ c, j }, r) => ({
+    .map(({ c, j }, rg) => ({
       id: j.id,
       pseudo: j.pseudo,
       equipe: j.equipe,
-      rang: r + 1,
+      rang: rg + 1,
       texte: j.absent
         ? "a abandonné"
         : s.joueurs.filter((q) => q.equipe === j.equipe).length > 1
