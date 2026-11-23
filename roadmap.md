@@ -1,5 +1,5 @@
 # Isitech World — feuille de route
-- [ ] Corriger la génération IA et créer automatiquement un quiz jouable après création ou import d'un cours.
+- [x] Corriger la génération IA et créer automatiquement un quiz jouable après création ou import d'un cours.
 - Mode solo arcade mis de côté à la demande de l'utilisateur.
 - [x] Vérifier les dépendances de tous les écrans et outils : isoler l'arcade incomplète et corriger le chemin du gestionnaire de quiz IA sans changer les permissions ni les données.
 - [x] Corriger le chargement de /jeu : retirer les références d'énigmes non implémentées et conserver les copies d'import incomplètes hors du code actif.
