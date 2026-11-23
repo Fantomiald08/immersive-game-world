@@ -1,186 +1,85 @@
-import { useEffect, useRef, useState } from "react";
-import { useControles } from "@/components/game/arcade/useControles";
-import { VuePartie } from "@/components/game/arcade/VuePartie";
-import { JEUX } from "@/game/arcade/jeux";
-import { Effets } from "@/game/arcade/fx";
+import type { Apparence } from "../apparence";
+import { creerCerveau, type Cerveau } from "./ia";
+import { avancer } from "./moteur";
+import { JEUX } from "./jeux";
 import {
-  avancerSolo,
-  creerPartieSolo,
-  type FormatSolo,
-  type PartieSolo as EtatSolo,
-} from "@/game/arcade/partieSolo";
-import type { Apparence } from "@/game/apparence";
-import type { JeuId, Resultat } from "@/game/arcade/types";
-
-const PAS = 1 / 60;
+  COULEURS_JOUEUR,
+  type EtatBase,
+  type Equipe,
+  type JeuId,
+  type JoueurPartie,
+} from "./types";
 
 /**
- * Une partie solo contre des IA. Tout est local : aucune connexion réseau n'est ouverte.
- * La boucle d'animation s'arrête d'elle-même en pause et à la fin de la partie, et tout
- * (boucle, clavier, boutons à l'écran) est nettoyé quand le composant disparaît.
+ * Parties en SOLO : le joueur affronte des ordinateurs, tout se passe sur son appareil.
+ * Ce module n'utilise ni Supabase ni aucun canal réseau.
  */
-export function PartieSolo({
-  jeuId,
-  format,
-  moi,
-  graine,
-  onRejouer,
-  onChanger,
-  onFermer,
-}: {
-  jeuId: JeuId;
-  format: FormatSolo;
-  moi: { id: string; pseudo: string; apparence?: Apparence | undefined };
-  graine: number;
-  onRejouer: () => void;
-  onChanger: () => void;
-  onFermer: () => void;
-}) {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const [resultat, setResultat] = useState<Resultat | null>(null);
-  const [enPause, setEnPause] = useState(false);
-  const touches = useRef(0);
-  // L'apparence est figée à l'ouverture : un rafraîchissement du profil ne doit jamais relancer la partie.
-  const apparence = useRef(moi.apparence);
-  const partieRef = useRef<EtatSolo | null>(null);
-  const fxRef = useRef<Effets | null>(null);
-  const jeu = JEUX[jeuId];
+export type FormatSolo = "1v1" | "2v2" | "ffa";
+export type MoiSolo = { id: string; pseudo: string; apparence?: Apparence | undefined };
 
-  const { appuyer } = useControles(!enPause && resultat === null, (bits) => {
-    touches.current = bits;
-  });
+export const FORMATS_SOLO: ReadonlyArray<{
+  id: FormatSolo;
+  nom: string;
+  description: string;
+  ia: number;
+}> = [
+  { id: "1v1", nom: "1v1", description: "Toi contre 1 IA.", ia: 1 },
+  { id: "2v2", nom: "2v2", description: "Toi + 1 allié IA contre 2 IA.", ia: 3 },
+  { id: "ffa", nom: "1v1v1v1", description: "Chacun pour soi contre 3 IA.", ia: 3 },
+];
 
-  // Initialisation de la partie à chaque nouvelle graine / jeu / format.
-  useEffect(() => {
-    partieRef.current = creerPartieSolo(
-      jeuId,
-      { id: moi.id, pseudo: moi.pseudo, apparence: apparence.current },
-      format,
-      graine,
-    );
-    fxRef.current = new Effets();
-    setResultat(null);
-    setEnPause(false);
-    return () => {
-      partieRef.current = null;
-      fxRef.current = null;
-    };
-  }, [jeuId, format, graine, moi.id, moi.pseudo]);
+const NOMS_IA = ["IA Rex", "IA Nova", "IA Zed"] as const;
 
-  // Touche Échap : bascule la pause pendant la partie.
-  useEffect(() => {
-    if (resultat !== null) return;
-    const touche = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
-      e.preventDefault();
-      setEnPause((p) => !p);
-    };
-    window.addEventListener("keydown", touche);
-    return () => window.removeEventListener("keydown", touche);
-  }, [resultat]);
-
-  // Boucle 60 FPS : suspendue proprement en pause et stoppée à la fin de la partie.
-  useEffect(() => {
-    if (enPause) return;
-    const c = canvas.current;
-    const ctx = c?.getContext("2d");
-    const partie = partieRef.current;
-    const fx = fxRef.current;
-    if (!c || !ctx || !partie || !fx) return;
-    if (partie.etat.phase === "fini") return;
-
-    let raf = 0;
-    let vivant = true;
-    let fini = false;
-    let derniere = performance.now();
-    let reste = 0;
-
-    const boucle = (now: number) => {
-      if (!vivant) return;
-      // Pas de temps plafonné à 50 ms : un onglet en veille ne fait jamais « sauter » la partie.
-      const dtImage = Math.min(0.05, (now - derniere) / 1000);
-      reste += dtImage;
-      derniere = now;
-      let n = 0;
-      while (reste >= PAS && n++ < 6) {
-        avancerSolo(partie, touches.current, PAS);
-        reste -= PAS;
-      }
-      if (n >= 6) reste = 0;
-      fx.maj(dtImage);
-      ctx.clearRect(0, 0, c.width, c.height);
-      jeu.dessiner(ctx, partie.etat, moi.id, fx);
-      if (partie.etat.phase === "fini") {
-        fini = true;
-        setResultat(partie.etat.resultat);
-      }
-      if (!fini) raf = requestAnimationFrame(boucle);
-    };
-    raf = requestAnimationFrame(boucle);
-    return () => {
-      vivant = false;
-      cancelAnimationFrame(raf);
-    };
-  }, [enPause, graine, jeu, moi.id]);
-
-  return (
-    <div className="relative space-y-2">
-      <div className="flex justify-end">
-        {resultat === null && (
-          <button
-            className="pixel-btn !bg-muted !px-2 !py-1 !text-foreground"
-            onClick={() => setEnPause((p) => !p)}
-          >
-            {enPause ? "▶ Reprendre" : "⏸ Pause"}
-          </button>
-        )}
-      </div>
-      <VuePartie
-        jeu={jeu}
-        canvas={canvas}
-        moiId={moi.id}
-        resultat={resultat}
-        enAttente={false}
-        appuyer={appuyer}
-        actionsFin={
-          <>
-            <button className="pixel-btn" onClick={onRejouer}>
-              ↻ Rejouer
-            </button>
-            <button className="pixel-btn !bg-muted !text-foreground" onClick={onChanger}>
-              ⚙ Changer de jeu
-            </button>
-            <button className="pixel-btn !bg-accent" onClick={onFermer}>
-              🏠 Retour à la salle Vénus
-            </button>
-          </>
+/** Les joueurs d'une partie solo : toi en premier, puis les IA (alliée d'abord en 2v2). */
+export function joueursSolo(moi: MoiSolo, format: FormatSolo): JoueurPartie[] {
+  // Équipe de chaque joueur, dans l'ordre : toi, puis les IA.
+  const equipes: Equipe[] =
+    format === "1v1" ? [0, 1] : format === "2v2" ? [0, 0, 1, 1] : [0, 1, 2, 3];
+  const compte: Record<Equipe, number> = { 0: 0, 1: 0, 2: 0, 3: 0 };
+  return equipes.map((equipe, i) => {
+    const teintes = COULEURS_JOUEUR[equipe];
+    const couleur = compte[equipe]++ % 2 === 0 ? teintes[0] : teintes[1];
+    return i === 0
+      ? {
+          id: moi.id,
+          pseudo: moi.pseudo,
+          equipe,
+          couleur,
+          ...(moi.apparence ? { apparence: moi.apparence } : {}),
         }
-      />
-      {enPause && resultat === null && (
-        <div
-          role="dialog"
-          aria-label="Pause"
-          className="fixed inset-0 z-[2600] grid place-items-center bg-black/75 p-4"
-        >
-          <div className="pixel-box w-full max-w-sm space-y-3 p-5 text-center">
-            <h3 className="font-pixel text-sm text-accent">⏸ PAUSE</h3>
-            <button className="pixel-btn w-full" onClick={() => setEnPause(false)}>
-              ▶ Reprendre
-            </button>
-            <button className="pixel-btn w-full" onClick={onRejouer}>
-              ↻ Recommencer
-            </button>
-            <button className="pixel-btn w-full !bg-muted !text-foreground" onClick={onChanger}>
-              ⚙ Changer de jeu
-            </button>
-            <button className="pixel-btn w-full !bg-accent" onClick={onFermer}>
-              🏠 Retour à la salle Vénus
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+      : { id: `ia-${i}`, pseudo: NOMS_IA[(i - 1) % NOMS_IA.length]!, equipe, couleur, ia: true };
+  });
+}
+
+export type PartieSolo = {
+  jeu: JeuId;
+  etat: EtatBase;
+  /** Un cerveau par joueur ordinateur, indexé par son identifiant. */
+  cerveaux: Map<string, Cerveau>;
+  /** Touches de tous les joueurs (rempli à chaque pas). */
+  entrees: Record<string, number>;
+  moiId: string;
+};
+
+export function creerPartieSolo(
+  jeuId: JeuId,
+  moi: MoiSolo,
+  format: FormatSolo,
+  graine: number,
+): PartieSolo {
+  const joueurs = joueursSolo(moi, format);
+  const etat = JEUX[jeuId].creer(joueurs, graine);
+  const cerveaux = new Map<string, Cerveau>();
+  joueurs.forEach((j, i) => {
+    if (j.ia) cerveaux.set(j.id, creerCerveau(jeuId, j.id, graine + 101 * (i + 1)));
+  });
+  return { jeu: jeuId, etat, cerveaux, entrees: {}, moiId: moi.id };
+}
+
+/** Avance la partie d'un pas : les IA décident, le joueur donne ses touches, puis la simulation avance. */
+export function avancerSolo(p: PartieSolo, touchesJoueur: number, dt: number): void {
+  p.entrees[p.moiId] = touchesJoueur;
+  if (p.etat.phase === "jeu")
+    for (const [id, cerveau] of p.cerveaux) p.entrees[id] = cerveau(p.etat, dt);
+  avancer(JEUX[p.jeu], p.etat, p.entrees, dt);
 }
