@@ -38,7 +38,7 @@ export function cerveauArene(id: string, graine: number): Cerveau {
     const moi = s.p[i];
     if (!moi || moi.respawn > 0 || s.entracte > 0) return 0;
 
-    // Temps de réaction : une décision toutes les ~0.13 s, entre-temps on garde la dernière.
+    // Temps de réaction : une décision toutes les ~0.22 s, entre-temps on garde la dernière.
     memoire.attente -= dt;
     memoire.changeStrafe -= dt;
     memoire.detour -= dt;
@@ -47,7 +47,7 @@ export function cerveauArene(id: string, graine: number): Cerveau {
     memoire.x = moi.x;
     memoire.y = moi.y;
     if (memoire.attente > 0) return memoire.entree;
-    memoire.attente = 0.1 + rnd() * 0.07;
+    memoire.attente = 0.17 + rnd() * 0.1;
     if (memoire.changeStrafe <= 0) {
       memoire.strafe = rnd() < 0.5 ? 1 : -1;
       memoire.changeStrafe = 0.7 + rnd() * 1.1;
@@ -121,13 +121,13 @@ export function cerveauArene(id: string, graine: number): Cerveau {
         const p = projeter(a.x, a.y, moi.x, moi.y, cible.x, cible.y);
         return p.t > 0 && p.t < 1 && p.dist < RAYON + 6;
       });
-      if (dCible <= portee && visible && ligneLibre && rnd() < 0.82) {
-        // Petite erreur de visée : plus grande de loin, pour rester battable.
-        const erreur = (rnd() - 0.5) * (0.05 + dCible / 2500);
+      if (dCible <= portee && visible && ligneLibre && rnd() < 0.62) {
+        // Erreur de visée : plus grande de loin, pour rester battable.
+        const erreur = (rnd() - 0.5) * (0.12 + dCible / 1300);
         bouton = BTN.a | viser(Math.atan2(cible.y - moi.y, cible.x - moi.x) + erreur);
       }
       // 3) Esquive : blessé et collé à un adversaire.
-      if (moi.pv < 40 && dCible < 120 && moi.dash <= 0 && rnd() < 0.4) bouton |= BTN.b;
+      if (moi.pv < 30 && dCible < 110 && moi.dash <= 0 && rnd() < 0.22) bouton |= BTN.b;
     }
 
     // Contournement prédictif d'un mur devant le bot, + secours s'il reste coincé.
