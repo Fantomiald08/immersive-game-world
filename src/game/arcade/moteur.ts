@@ -144,19 +144,23 @@ export function dessinerHud(
   s: EtatBase,
   largeur: number,
   hauteur: number,
+  /** Faux : le jeu dessine lui-même son chronomètre (cadre propre à son interface). */
+  chrono = true,
 ): void {
   ctx.save();
   const restant = s.duree - s.t;
   const urgent = s.phase === "jeu" && restant <= 10;
-  panneau(ctx, largeur / 2 - 38, 6, 76, 26, urgent ? "#ff6b6b" : "#ffd166");
-  texte(
-    ctx,
-    formaterTemps(Math.ceil(restant)),
-    largeur / 2,
-    20,
-    20,
-    urgent && Math.floor(s.t * 3) % 2 === 0 ? "#ff6b6b" : "#ffd166",
-  );
+  if (chrono) {
+    panneau(ctx, largeur / 2 - 38, 6, 76, 26, urgent ? "#ff6b6b" : "#ffd166");
+    texte(
+      ctx,
+      formaterTemps(Math.ceil(restant)),
+      largeur / 2,
+      20,
+      20,
+      urgent && Math.floor(s.t * 3) % 2 === 0 ? "#ff6b6b" : "#ffd166",
+    );
+  }
   if (s.phase === "compte") {
     ctx.fillStyle = "rgba(0,0,0,0.5)";
     ctx.fillRect(0, 0, largeur, hauteur);
