@@ -1,6 +1,7 @@
 import { borne, dessinerHud, emettre, formaterChrono, meilleureEquipe } from "../moteur";
 import type { Effets } from "../fx";
 import { decorEnCache, halo, hash, ombre, OL, panneau, r, texte } from "../rendu/pixel";
+import { glyphes } from "../rendu/dojo";
 import {
   BTN,
   COULEUR_EQUIPE,
@@ -354,33 +355,87 @@ const rowDe = (dz: number): number => HORIZON + LIGNES / (1 + dz / ECH);
 
 /** Ciel nocturne, skyline urbaine, enceinte d'arène à gradins et projecteurs (couche en cache). */
 function dessinerCiel(ctx: CanvasRenderingContext2D): void {
+  // Voûte de l'arène fermée : noir profond, reflets violets près des gradins
   const g = ctx.createLinearGradient(0, 0, 0, HORIZON);
-  g.addColorStop(0, "#050510");
-  g.addColorStop(0.5, "#190f3a");
-  g.addColorStop(0.86, "#4d1a60");
-  g.addColorStop(1, "#b42e74");
+  g.addColorStop(0, "#020208");
+  g.addColorStop(0.55, "#0b0a24");
+  g.addColorStop(1, "#2a1250");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, L_CIEL, HORIZON + 2);
-  for (let i = 0; i < 120; i++)
-    r(
-      ctx,
-      hash(i) * L_CIEL,
-      hash(i + 300) * (HORIZON - 80),
-      i % 7 === 0 ? 2 : 1,
-      i % 7 === 0 ? 2 : 1,
-      i % 5 === 0 ? "#ffffff" : "#b9a7e8",
-    );
-  // Skyline urbaine derrière l'arène avec enseignes néon
-  for (let k = 0; k < 32; k++) {
-    const h = 24 + hash(k * 7) * 50;
-    const x = k * 50 + hash(k) * 10;
-    r(ctx, x, HORIZON - 56 - h, 38, h, "#140e2d");
-    if (k % 3 === 0)
-      r(ctx, x + 6, HORIZON - 56 - h - 4, 24, 3, k % 2 === 0 ? "#19e6ff" : "#ff2fb4");
-    for (let rr = 0; rr < h / 11; rr++)
-      for (let cc = 0; cc < 3; cc++)
-        if (hash(k * 11 + rr * 3 + cc) > 0.55)
-          r(ctx, x + 5 + cc * 11, HORIZON - 52 - h + rr * 11, 4, 5, "#ffd98a");
+  // Charpente métallique : poutres, croisillons et projecteurs
+  ctx.strokeStyle = "#1c2040";
+  ctx.lineWidth = 2;
+  for (const y of [8, 30]) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(L_CIEL, y);
+    ctx.stroke();
+  }
+  for (let x = 0; x < L_CIEL; x += 36) {
+    ctx.beginPath();
+    ctx.moveTo(x, 8);
+    ctx.lineTo(x + 18, 30);
+    ctx.lineTo(x + 36, 8);
+    ctx.stroke();
+  }
+  for (let x = 20; x < L_CIEL; x += 120) r(ctx, x, 30, 6, 3, hash(x) > 0.5 ? "#eaf6ff" : "#ffd98a");
+  // Piste suspendue au loin : rubans néon en spirale
+  ctx.save();
+  ctx.lineCap = "round";
+  for (const cx of [L_CIEL * 0.25, L_CIEL * 0.75]) {
+    for (let i = 0; i < 6; i++) {
+      const col = i % 2 === 0 ? "#19e6ff" : "#ff3fb4";
+      ctx.strokeStyle = col;
+      ctx.shadowColor = col;
+      ctx.shadowBlur = 8;
+      ctx.lineWidth = 3 - i * 0.2;
+      ctx.beginPath();
+      ctx.ellipse(cx, 96 - i * 9, 150 - i * 15, 16 - i * 1.5, 0, Math.PI * 1.02, Math.PI * 2.02);
+      ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "#171b3a";
+    for (let k = -2; k <= 2; k++) ctx.fillRect(cx + k * 55 - 1, 100, 3, 40);
+  }
+  ctx.restore();
+  // Écrans géants et enseignes néon cyan / magenta autour de l'arène
+  for (let k = 0; k < 8; k++) {
+    const x = 30 + k * 200 + hash(k) * 30;
+    const rose = k % 3 === 1;
+    const col = rose ? "#ff3fb4" : "#19e6ff";
+    const w = 96 + hash(k + 40) * 60;
+    const h = 44 + hash(k + 60) * 24;
+    ctx.save();
+    ctx.fillStyle = rose ? "#2a0a2a" : "#06303f";
+    ctx.fillRect(x, 40, w, h);
+    ctx.shadowColor = col;
+    ctx.shadowBlur = 14;
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 3;
+    ctx.strokeRect(x + 1.5, 41.5, w - 3, h - 3);
+    ctx.restore();
+    if (k % 2 === 0) {
+      // Écran avec foule en liesse
+      for (let i = 0; i < 34; i++) {
+        const px = x + 6 + hash(k * 50 + i) * (w - 14);
+        const py = 56 + hash(k * 70 + i) * (h - 26);
+        r(ctx, px, py, 3, 4, ["#f6d5b8", "#c98d5f", "#ff3fb4", "#19e6ff"][i % 4]!);
+        if (i % 3 === 0) r(ctx, px - 1, py - 4, 1, 4, "#ffe14d");
+      }
+    } else glyphes(ctx, x + 6, 48, w - 12, h - 14, rose ? "#ff9ad5" : "#bff6ff", k * 31 + 5);
+  }
+  // Panneaux étroits en kana lumineux
+  for (let k = 0; k < 6; k++) {
+    const x = 130 + k * 270 + hash(k + 9) * 40;
+    ctx.save();
+    ctx.fillStyle = "#16061f";
+    ctx.fillRect(x, 98, 36, 12);
+    ctx.shadowColor = "#ff3fb4";
+    ctx.shadowBlur = 8;
+    ctx.strokeStyle = "#ff3fb4";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x + 0.5, 98.5, 35, 11);
+    ctx.restore();
   }
   // Enceinte de l'arène : gradins + mur d'enceinte urbain
   r(ctx, 0, HORIZON - 58, L_CIEL, 58, "#0b0b18");
@@ -422,8 +477,10 @@ function dessinerVoiture(
     return;
   }
   const u = larg / 28;
-  const fonce = nuanceCouleur(o.couleur, 0.62);
-  const clair = nuanceCouleur(o.couleur, 1.35);
+  const noir = "#0d0d14";
+  const caisse = nuanceCouleur(o.couleur, 0.3);
+  const caisse2 = nuanceCouleur(o.couleur, 0.5);
+  const clair = nuanceCouleur(o.couleur, 1.5);
   ctx.save();
   ctx.translate(Math.round(cx), Math.round(bas));
   if (o.incl) ctx.rotate(o.incl * 0.035);
@@ -436,60 +493,72 @@ function dessinerVoiture(
     }
     R(x, y, w, h, c);
   };
-  // Lueur néon sous le châssis + ombre
-  ombre(ctx, 0, 0.5 * u, 15.5 * u, 2.6 * u, 0.55);
-  ctx.globalAlpha = 0.45;
+  // Ombre portée au sol + néon bleu sous le châssis
+  ombre(ctx, 0, 0.6 * u, 17 * u, 3 * u, 0.6);
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.globalAlpha = 0.55;
   ctx.fillStyle = o.couleur;
   ctx.beginPath();
-  ctx.ellipse(0, -0.5 * u, 14 * u, 2 * u, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, -0.6 * u, 14.5 * u, 2.4 * u, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.globalAlpha = 1;
-  // Pneus
-  B(-14.5, -8.5, 5, 8.5, "#12121a");
-  B(9.5, -8.5, 5, 8.5, "#12121a");
-  R(-13.8, -7.5, 1.2, 6, "#3a3a4c");
-  R(10.2, -7.5, 1.2, 6, "#3a3a4c");
-  // Bas de caisse + diffuseur
-  B(-12.5, -9, 25, 6, fonce);
-  R(-9, -3.2, 18, 3, "#15151f");
-  R(-8, -1.5, 16, 0.7, o.couleur);
-  // Carrosserie
-  B(-12, -15.5, 24, 7.5, o.couleur);
-  R(-12, -15.5, 24, 1.4, clair);
-  R(-12, -10, 24, 1.2, fonce);
-  // Habitacle vitré
-  B(-8.5, -21.5, 17, 6.2, "#13233a");
-  R(-7.5, -20.5, 15, 1.2, "#4a7aa8");
-  R(-3, -20.5, 1.5, 4, "#2a4a72");
-  R(-8.5, -22, 17, 0.8, clair);
-  // Aileron : supports, plan et liseré néon
-  R(-8.5, -26, 1.6, 5, "#1a1a26");
-  R(6.9, -26, 1.6, 5, "#1a1a26");
-  B(-13.5, -27.5, 27, 2.5, "#1c1c2a");
-  R(-13.5, -27.5, 27, 0.8, o.couleur);
-  // Feux arrière
-  const lumiere = o.frein ? "#ff8a8a" : "#e02020";
-  R(-11.5, -13.5, 6.5, 2.2, lumiere);
-  R(5, -13.5, 6.5, 2.2, lumiere);
+  ctx.restore();
+  halo(ctx, 0, -1 * u, 12 * u, o.couleur, 0.35);
+  // Pneus larges et jantes
+  B(-15, -8, 5, 8, "#0a0a10");
+  B(10, -8, 5, 8, "#0a0a10");
+  R(-14.2, -6.8, 1.3, 4.6, "#6b6b84");
+  R(10.9, -6.8, 1.3, 4.6, "#6b6b84");
+  // Bas de caisse, diffuseur et échappements
+  B(-13, -8.5, 26, 5, noir);
+  for (let i = -5; i <= 5; i += 2.5) R(i, -4, 0.8, 3.6, "#1d1d2a");
+  R(-12, -3.6, 24, 0.8, o.couleur);
+  // Caisse très large et basse
+  B(-14, -13.5, 28, 6, caisse);
+  R(-14, -13.5, 28, 1, clair);
+  R(-14, -8.8, 28, 0.9, noir);
+  // Barre de feux arrière sur toute la largeur + deux optiques rondes
+  const lum = o.frein ? "#ff9a9a" : "#ff2a2a";
+  R(-13, -12.2, 26, 1.6, "#4a0508");
+  R(-13, -12.2, 11, 1.6, lum);
+  R(2, -12.2, 11, 1.6, lum);
+  R(-13, -10.2, 4.5, 1.8, lum);
+  R(8.5, -10.2, 4.5, 1.8, lum);
   if (o.frein) {
-    halo(ctx, -8 * u, -12.5 * u, 6 * u, "#ff3030", 0.8);
-    halo(ctx, 8 * u, -12.5 * u, 6 * u, "#ff3030", 0.8);
+    halo(ctx, -8 * u, -11.5 * u, 9 * u, "#ff2020", 0.85);
+    halo(ctx, 8 * u, -11.5 * u, 9 * u, "#ff2020", 0.85);
+  } else {
+    halo(ctx, -7 * u, -11.5 * u, 7 * u, "#ff2020", 0.5);
+    halo(ctx, 7 * u, -11.5 * u, 7 * u, "#ff2020", 0.5);
   }
-  // Échappements et flammes
-  R(-5, -6, 3, 2.2, "#7a7a88");
-  R(2, -6, 3, 2.2, "#7a7a88");
-  if ((o.flammes ?? 0) > 0) {
-    const f = o.flammes!;
+  // Coffre, aileron en queue de canard et habitacle bas à lunette inclinée
+  B(-11.5, -16, 23, 2.7, caisse2);
+  R(-11.5, -16, 23, 0.7, clair);
+  B(-13, -19, 26, 1.9, "#0b0b12");
+  R(-13, -19, 26, 0.6, o.couleur);
+  R(-13, -20.5, 1.3, 3.2, "#0b0b12");
+  R(11.7, -20.5, 1.3, 3.2, "#0b0b12");
+  R(-6.5, -17, 1.2, 1.4, "#0b0b12");
+  R(5.3, -17, 1.2, 1.4, "#0b0b12");
+  B(-8, -22.5, 16, 6.2, "#0e1830");
+  R(-7, -21.8, 14, 1, "#5b8ac4");
+  R(-1, -21.8, 1.2, 4.4, "#1c3358");
+  R(-8, -22.8, 16, 0.8, caisse2);
+  // Échappements, flammes bleues
+  R(-6.5, -5.8, 3, 2.2, "#8a8aa0");
+  R(3.5, -5.8, 3, 2.2, "#8a8aa0");
+  const f = o.flammes ?? 0;
+  if (f > 0) {
     const fl = (Math.sin((o.t ?? 0) * 60) * 0.5 + 1) * f;
-    for (const x of [-3.5, 3.5]) {
-      R(x - 1.3, -4 + 0.1, 2.6, 3 + 3 * fl, "#ff8c2a");
-      R(x - 0.7, -4 + 0.1, 1.4, 2 + 2.4 * fl, "#fff3a0");
+    for (const x of [-5, 5]) {
+      R(x - 1.6, -4.2, 3.2, 3 + 3.4 * fl, "#1fa8ff");
+      R(x - 0.9, -4.2, 1.8, 2 + 2.6 * fl, "#d6f6ff");
+      halo(ctx, x * u, -2 * u, 7 * u, "#19c8ff", 0.65);
     }
-    halo(ctx, 0, -2 * u, 12 * u, f > 1.2 ? "#4fd1c5" : "#ff9f43", 0.55);
   }
   // Plaque
-  R(-3, -7, 6, 2, "#eeeef6");
-  R(-2.2, -6.5, 4.4, 1, "#2a2a3a");
+  R(-3, -8, 6, 1.8, "#eeeef6");
+  R(-2.2, -7.6, 4.4, 0.9, "#2a2a3a");
   ctx.restore();
 }
 

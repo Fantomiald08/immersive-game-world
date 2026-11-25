@@ -1,4 +1,7 @@
 import { borne, dessinerHud, emettre, meilleureEquipe } from "../moteur";
+import { chronoHexagone, faceCombat } from "../rendu/hud";
+import { arcLumineux, dessinerCombattantPixel, type PoseCombat } from "../rendu/combattants";
+import { dessinerDojo, dessinerSpectateursDojo, LANTERNES_DOJO } from "../rendu/dojo";
 import type { Effets } from "../fx";
 import {
   apparenceDe,
@@ -39,6 +42,7 @@ export const L = 800;
 export const H = 480;
 export const SOL = 410;
 const PV_MAX = 100;
+const ROSE_BARRE = "#d63fa8";
 const GRAVITE = 1500;
 const SAUT = 590;
 const VITESSE = 175;
@@ -427,153 +431,6 @@ function finir(base: EtatBase): Resultat {
 
 const MARGE = 40;
 const W_DOJO = L + MARGE * 2;
-/** Fenêtre ouverte sur la ville de nuit (dans le repère de la couche « mur »). */
-const FEN = { x: MARGE + 520, y: 62, w: 200, h: 196 };
-const LANTERNES = [MARGE + 150, MARGE + 400, MARGE + 780] as const;
-
-/** Couche lointaine : ciel étoilé, lune, skyline (vue à travers la fenêtre). */
-function dessinerCiel(ctx: CanvasRenderingContext2D): void {
-  const g = ctx.createLinearGradient(0, 0, 0, SOL);
-  g.addColorStop(0, "#120d33");
-  g.addColorStop(0.55, "#4a2a6a");
-  g.addColorStop(1, "#c2507a");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, W_DOJO, SOL);
-  for (let i = 0; i < 70; i++)
-    r(ctx, hash(i) * W_DOJO, hash(i + 90) * 200, 2, 2, i % 5 === 0 ? "#fff" : "#b9a7e8");
-  ctx.fillStyle = "#fff4c2";
-  ctx.beginPath();
-  ctx.arc(FEN.x + 140, FEN.y + 60, 20, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#e9d98f";
-  ctx.beginPath();
-  ctx.arc(FEN.x + 146, FEN.y + 56, 17, 0, Math.PI * 2);
-  ctx.fill();
-  for (let k = 0; k < 16; k++) {
-    const h = 60 + hash(k * 3) * 110;
-    const x = k * 56;
-    r(ctx, x, SOL - h - 30, 44, h + 30, "#241a45");
-    for (let rr = 0; rr < h / 22; rr++)
-      for (let cc = 0; cc < 2; cc++)
-        if (hash(k * 13 + rr * 5 + cc) > 0.4)
-          r(ctx, x + 8 + cc * 18, SOL - h - 22 + rr * 22, 6, 9, "#ffe08a");
-  }
-}
-
-/** Couche du dojo : poutres, cloisons coulissantes, bannières, fenêtre, tatamis. */
-function dessinerMurDojo(ctx: CanvasRenderingContext2D): void {
-  const { x: hx, y: hy, w: hw, h: hh } = FEN;
-  const mur = "#34222a";
-  // Le mur est dessiné autour de la fenêtre (le ciel reste visible à travers).
-  r(ctx, 0, 0, W_DOJO, hy, mur);
-  r(ctx, 0, hy + hh, W_DOJO, SOL - hy - hh, mur);
-  r(ctx, 0, hy, hx, hh, mur);
-  r(ctx, hx + hw, hy, W_DOJO - hx - hw, hh, mur);
-  // Cloisons coulissantes (papier éclairé par les lanternes)
-  for (let x = MARGE - 10; x < W_DOJO - 40; x += 140) {
-    if (x + 120 > hx - 10 && x < hx + hw + 10) continue;
-    r(ctx, x, 62, 124, 196, "#2a1a12");
-    r(ctx, x + 4, 66, 116, 188, "#8d7e68");
-    r(ctx, x + 4, 66, 116, 24, "#a49479");
-    for (let cx = 0; cx <= 116; cx += 29) r(ctx, x + 4 + cx, 66, 3, 188, "#2a1a12");
-    for (let cy = 0; cy <= 188; cy += 47) r(ctx, x + 4, 66 + cy, 116, 3, "#2a1a12");
-  }
-  // Soubassement en planches
-  r(ctx, 0, 258, W_DOJO, SOL - 258, "#4a2f1d");
-  for (let x = 0; x < W_DOJO; x += 22) {
-    r(ctx, x, 258, 2, SOL - 258, "#2f1c10");
-    r(ctx, x + 3, 262, 2, SOL - 266, "#5c3b25");
-  }
-  r(ctx, 0, 254, W_DOJO, 6, "#6b4529");
-  // Cadre de la fenêtre
-  r(ctx, hx - 8, hy - 8, hw + 16, 8, "#2a1a12");
-  r(ctx, hx - 8, hy + hh, hw + 16, 8, "#2a1a12");
-  r(ctx, hx - 8, hy, 8, hh, "#2a1a12");
-  r(ctx, hx + hw, hy, 8, hh, "#2a1a12");
-  r(ctx, hx + hw / 2 - 2, hy, 4, hh, "#2a1a12");
-  r(ctx, hx, hy + hh / 2 - 2, hw, 4, "#2a1a12");
-  // Poutres apparentes
-  r(ctx, 0, 0, W_DOJO, 38, "#221109");
-  r(ctx, 0, 38, W_DOJO, 6, "#4a2e1d");
-  r(ctx, 0, 6, W_DOJO, 3, "#3a2314");
-  for (const x of [MARGE - 8, MARGE + 262, MARGE + 530, MARGE + 790]) {
-    r(ctx, x, 44, 24, 214, "#2f1c10");
-    r(ctx, x + 3, 44, 4, 214, "#4f3320");
-  }
-  // Bannières
-  for (const bx of [MARGE + 40, MARGE + 330]) {
-    r(ctx, bx - 2, 44, 54, 128, OL);
-    r(ctx, bx, 44, 50, 124, "#a8322a");
-    r(ctx, bx + 4, 50, 42, 3, "#ffd166");
-    r(ctx, bx + 4, 160, 42, 3, "#ffd166");
-    for (let k = 0; k < 4; k++) r(ctx, bx + 22, 62 + k * 22, 6, 14, "#f4f4f4");
-  }
-  // Lanternes (le halo est animé à part)
-  for (const lx of LANTERNES) {
-    r(ctx, lx - 1, 44, 2, 22, "#1a0e08");
-    r(ctx, lx - 11, 66, 22, 4, OL);
-    ctx.fillStyle = OL;
-    ctx.beginPath();
-    ctx.ellipse(lx, 84, 13, 17, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#e2553f";
-    ctx.beginPath();
-    ctx.ellipse(lx, 84, 11, 15, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#ffb15c";
-    ctx.beginPath();
-    ctx.ellipse(lx, 84, 6, 11, 0, 0, Math.PI * 2);
-    ctx.fill();
-    for (const dy of [-8, 0, 8]) r(ctx, lx - 11, 84 + dy, 22, 1, "#8a2a1c");
-    r(ctx, lx - 6, 99, 12, 4, OL);
-  }
-  // Tatamis
-  r(ctx, 0, SOL, W_DOJO, H - SOL, "#6b6538");
-  for (let row = 0; row < 3; row++)
-    for (let x = -((row * 70) % 140); x < W_DOJO; x += 140) {
-      r(ctx, x, SOL + 10 + row * 22, 140, 22, "#2b2713");
-      r(ctx, x + 3, SOL + 12 + row * 22, 134, 18, row % 2 ? "#7a7442" : "#807a46");
-      for (let k = 0; k < 134; k += 5)
-        r(ctx, x + 3 + k, SOL + 12 + row * 22, 1, 18, "rgba(0,0,0,0.12)");
-    }
-  r(ctx, 0, SOL, W_DOJO, 10, "#5a3a22");
-  r(ctx, 0, SOL, W_DOJO, 2, "#7d5232");
-  const g = ctx.createLinearGradient(0, SOL, 0, H);
-  g.addColorStop(0, "rgba(0,0,0,0)");
-  g.addColorStop(1, "rgba(0,0,0,0.35)");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, SOL, W_DOJO, H - SOL);
-}
-
-/** Spectateurs assis au fond du dojo : ils sautent et lèvent les bras quand l'action s'intensifie. */
-function dessinerFoule(ctx: CanvasRenderingContext2D, fx: Effets, decal: number): void {
-  const n = fx.lent ? 9 : 17;
-  for (let i = 0; i < n; i++) {
-    const x = 16 + i * 48 + decal * 1.4 + (hash(i) - 0.5) * 12;
-    if (x < -20 || x > L + 20) continue;
-    const exc = fx.excitation;
-    const saute =
-      exc > 0.05
-        ? Math.abs(Math.sin(fx.horloge * 9 + i * 1.7)) * 7 * exc
-        : Math.sin(fx.horloge * 1.5 + i) * 0.8;
-    const y = SOL - 6 - saute;
-    const gi = i % 3 === 0 ? "#6e7896" : i % 3 === 1 ? "#58627e" : "#7c86a4";
-    ctx.globalAlpha = 0.92;
-    ombre(ctx, x, SOL - 2, 12, 3, 0.3);
-    r(ctx, x - 8, y - 22, 16, 22, OL);
-    r(ctx, x - 7, y - 21, 14, 20, gi);
-    r(ctx, x - 7, y - 11, 14, 3, ["#e2553f", "#ffd166", "#4fd1c5", "#c084fc"][i % 4]!);
-    r(ctx, x - 6, y - 33, 12, 12, OL);
-    r(ctx, x - 5, y - 32, 10, 10, ["#f6d5b8", "#c98d5f", "#9a6440"][i % 3]!);
-    r(ctx, x - 5, y - 32, 10, 3, ["#1e1a17", "#4b2e1a", "#b5452b"][(i + 1) % 3]!);
-    if (exc > 0.25) {
-      r(ctx, x - 11, y - 30 - saute * 0.3, 3, 12, gi);
-      r(ctx, x + 8, y - 30 - saute * 0.3, 3, 12, gi);
-    }
-    ctx.globalAlpha = 1;
-  }
-}
-
 function poseDe(c: Combattant): { pose: PoseChibi; progres: number } {
   if (c.ko) return { pose: "ko", progres: 0 };
   if (c.etourdi > 0) return { pose: "degat", progres: 0 };
@@ -611,9 +468,9 @@ function dessinerCombattant(
       ctx,
       c.x,
       SOL + 5,
-      Math.max(10, 28 - haut * 0.07),
-      Math.max(3, 7 - haut * 0.015),
-      Math.max(0.12, 0.4 - haut * 0.0009),
+      Math.max(14, 44 - haut * 0.09),
+      Math.max(4, 10 - haut * 0.02),
+      Math.max(0.15, 0.55 - haut * 0.001),
     );
   else ombre(ctx, c.x, SOL + 5, 44, 6, 0.35);
   // Repère d'équipe au sol : moi (double), allié (pointillé), adversaire (simple)
@@ -699,20 +556,26 @@ function dessinerCombattant(
         0.7,
       );
   }
-  dessinerChibi(ctx, {
+  if (c.atk?.type === "c" && !c.ko && j.equipe % 2 === 0) {
+    const defS = ATTAQUES.c;
+    const k = (c.atk.t - defS.debut + 0.1) / (defS.fin - defS.debut + 0.2);
+    if (k > 0 && k < 1.3) arcLumineux(ctx, c.x + c.face * 6, c.y - 64, c.face, k);
+  }
+  dessinerCombattantPixel(ctx, {
     x: c.x,
     y: c.y,
-    ech: 4,
-    a: apparenceDe(j),
-    dir: c.face > 0 ? "droite" : "gauche",
-    pose,
+    face: c.face > 0 ? 1 : -1,
+    genre: (j.equipe % 2) as 0 | 1,
+    pose: pose as PoseCombat,
     progres,
-    frame: Math.floor(c.marche) % 4,
+    marche: c.marche,
+    temps: fx.horloge,
+    neon: j.equipe % 2 === 0 ? "#19e6ff" : eq,
     blanc: c.flash > 0 && !c.ko,
   });
   // Nom, repère de joueur et d'allié
   if (!c.ko) {
-    const ty = c.y - 118;
+    const ty = c.y - 152;
     texte(ctx, (allie ? "♦ " : "") + j.pseudo.slice(0, 9), c.x, ty, 12, mien ? "#ffd166" : eq);
     if (mien) {
       ctx.fillStyle = "#ffd166";
@@ -793,30 +656,31 @@ function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx
   const decal = -(xmoy - L / 2) * 0.04;
 
   fx.debut(ctx);
-  if (!decorEnCache("dojo-ciel", W_DOJO, SOL, dessinerCiel, ctx, -MARGE + decal * 0.5, 0)) {
-    ctx.save();
-    ctx.translate(-MARGE + decal * 0.5, 0);
-    dessinerCiel(ctx);
-    ctx.restore();
-  }
-  if (!decorEnCache("dojo-mur", W_DOJO, H, dessinerMurDojo, ctx, -MARGE + decal, 0)) {
+  const dessinerFond = (c: CanvasRenderingContext2D) => {
+    c.translate(MARGE, 0);
+    dessinerDojo(c);
+  };
+  if (!decorEnCache("dojo-neon-v2", W_DOJO, H, dessinerFond, ctx, -MARGE + decal, 0)) {
     ctx.save();
     ctx.translate(-MARGE + decal, 0);
-    dessinerMurDojo(ctx);
+    dessinerFond(ctx);
     ctx.restore();
   }
   // Lanternes : halo qui vacille
-  LANTERNES.forEach((lx, i) =>
+  LANTERNES_DOJO.forEach((l, i) =>
     halo(
       ctx,
-      lx - MARGE + decal,
-      84,
-      90 + Math.sin(fx.horloge * 7 + i * 2) * 6,
+      l.x + decal,
+      l.y,
+      (70 + Math.sin(fx.horloge * 7 + i * 2) * 5) * l.t,
       "#ff9f43",
-      0.32 + Math.sin(fx.horloge * 11 + i) * 0.04,
+      0.3 + Math.sin(fx.horloge * 11 + i) * 0.04,
     ),
   );
-  dessinerFoule(ctx, fx, decal);
+  ctx.save();
+  ctx.translate(decal * 1.2, 0);
+  dessinerSpectateursDojo(ctx, fx.horloge, fx.excitation, !!fx.lent);
+  ctx.restore();
 
   // Les combattants K.O. d'abord (au sol), puis les autres
   const ordre = s.f.map((_, i) => i).sort((a, b) => Number(s.f[b]!.ko) - Number(s.f[a]!.ko));
@@ -851,65 +715,61 @@ function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx
   fx.fin(ctx);
   fx.dessinerFlash(ctx, L, H);
 
-  // Barres de vie : équipes 0 et 2 à gauche, 1 et 3 à droite, avec traînée de dégâts
+  // HUD arcade : portraits encadrés, barres de vie dégradées, jauge spéciale cyan, chrono hexagonal.
   const rangs = { gauche: 0, droite: 0 };
-  const moiJ = s.joueurs.find((q) => q.id === moi);
   s.f.forEach((c, i) => {
     const j = s.joueurs[i]!;
     const gauche = j.equipe % 2 === 0;
     const k = gauche ? rangs.gauche++ : rangs.droite++;
-    const w = 290;
-    const x = gauche ? 10 : L - 10 - w;
-    const y = 8 + k * 26;
     const traine = fx.suivi(j.id, c.pv);
-    panneau(ctx, x, y, w, 20, COULEUR_EQUIPE[j.equipe]);
-    const lp = (w - 8) * (Math.max(0, c.pv) / PV_MAX);
-    const lt = (w - 8) * (Math.max(0, traine) / PV_MAX);
-    r(ctx, gauche ? x + 4 : x + w - 4 - lt, y + 5, lt, 12, "#ff5d5d");
-    r(
-      ctx,
-      gauche ? x + 4 : x + w - 4 - lp,
-      y + 5,
-      lp,
-      12,
-      c.pv > 50 ? "#6ee7a0" : c.pv > 25 ? "#ffd166" : "#ff8c42",
-    );
-    r(ctx, gauche ? x + 4 : x + w - 4 - lp, y + 5, lp, 3, "rgba(255,255,255,0.35)");
-    const allie = j.id !== moi && !!moiJ && moiJ.equipe === j.equipe;
-    texte(
-      ctx,
-      `${allie ? "♦ " : ""}${j.pseudo.slice(0, 12)}`,
-      gauche ? x + 8 : x + w - 8,
-      y + 11,
-      11,
-      "#fff",
-      gauche ? "left" : "right",
-    );
-  });
-  // Manches gagnées, par équipe
-  const equipes = equipesDe(s.joueurs);
-  equipes.forEach((e, k) => {
-    const x = L / 2 + (k - (equipes.length - 1) / 2) * (equipes.length > 2 ? 56 : 120);
-    const gagnees = Math.min(MANCHES_VICTOIRE, s.manches[e] ?? 0);
-    for (let m = 0; m < MANCHES_VICTOIRE; m++) {
-      r(ctx, x - 12 + m * 14, 38, 11, 11, COULEUR_EQUIPE[e]);
-      r(ctx, x - 11 + m * 14, 39, 9, 9, m < gagnees ? COULEUR_EQUIPE[e] : "#10101a");
+    if (k === 0) {
+      faceCombat(
+        ctx,
+        {
+          nom: j.pseudo,
+          pv: c.pv / PV_MAX,
+          traine: traine / PV_MAX,
+          special: 1 - c.cdSpecial / RECHARGE_SPECIAL,
+          specialPret: c.cdSpecial <= 0,
+          manchesGagnees: Math.min(MANCHES_VICTOIRE, s.manches[j.equipe] ?? 0),
+          manchesTotal: MANCHES_VICTOIRE,
+          portrait: (cx, x, y, w, h) =>
+            dessinerChibi(cx, {
+              x: x + w / 2,
+              y: y + h + 38,
+              ech: 3,
+              a: apparenceDe(j),
+              dir: gauche ? "droite" : "gauche",
+            }),
+        },
+        gauche,
+        L,
+        `${j.id === moi ? "▶ " : ""}${j.pseudo.slice(0, 14).toUpperCase()}`,
+      );
+    } else {
+      // Coéquipier (2v2) : petite barre sous le chrono de son côté.
+      const w = 150;
+      const x = gauche ? 58 : L - 58 - w;
+      const y = 66 + (k - 1) * 14;
+      r(ctx, x - 1, y - 1, w + 2, 9, "#12082a");
+      r(ctx, gauche ? x : x + w * (1 - c.pv / PV_MAX), y, w * (c.pv / PV_MAX), 7, ROSE_BARRE);
+      texte(ctx, j.pseudo.slice(0, 10).toUpperCase(), gauche ? x + w + 6 : x - 6, y + 4, 8, "#ffd2ee", gauche ? "left" : "right");
     }
   });
-  texte(ctx, `MANCHE ${Math.min(s.manche, 3)}`, L / 2, 62, 12, "#fff");
-  // Spécial : jauge de recharge visible
-  const moiC = s.f.find((c) => c.id === moi);
-  if (moiC) {
-    const k = 1 - moiC.cdSpecial / RECHARGE_SPECIAL;
-    panneau(ctx, L / 2 - 120, H - 26, 240, 20, k >= 1 ? "#4fd1c5" : "#556");
-    r(ctx, L / 2 - 116, H - 19, 232 * k, 8, k >= 1 ? "#4fd1c5" : "#7a8899");
-    texte(ctx, k >= 1 ? "SPÉCIAL PRÊT (L)" : "SPÉCIAL…", L / 2, H - 16, 11, "#fff");
-  }
+  const restant = Math.max(0, s.duree - s.t);
+  chronoHexagone(
+    ctx,
+    L / 2,
+    30,
+    String(Math.ceil(restant)),
+    s.phase === "jeu" && restant <= 10 && Math.floor(s.t * 3) % 2 === 0,
+  );
+  texte(ctx, `MANCHE ${Math.min(s.manche, 3)}`, L / 2, 66, 10, "#cfe9ff");
   if (s.entracte > 0 && s.annonce) {
     r(ctx, 0, H / 2 - 50, L, 100, "rgba(0,0,0,0.55)");
     texte(ctx, s.annonce, L / 2, H / 2, 40, "#ffd166");
   }
-  dessinerHud(ctx, s, L, H);
+  dessinerHud(ctx, s, L, H, false);
 }
 
 export const combat: Jeu = {

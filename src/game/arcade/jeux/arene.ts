@@ -1,7 +1,24 @@
 import { nuance } from "../../carte/couleur";
 import type { Direction } from "../../apparence";
 import type { Effets } from "../fx";
-import { aleatoire, borne, dessinerHud, emettre, meilleureEquipe } from "../moteur";
+import {
+  aleatoire,
+  borne,
+  dessinerHud,
+  emettre,
+  formaterTemps,
+  meilleureEquipe,
+} from "../moteur";
+import { cartesArmes, chronoTrapeze } from "../rendu/hud";
+import {
+  ajouterDouille,
+  ajouterEtoile,
+  anneauxTelegraphe,
+  circuitsNeon,
+  dessinerDouilles,
+  dessinerEtoiles,
+  dessinerSoldat,
+} from "../rendu/arene2d";
 import {
   apparenceDe,
   bloc,
@@ -726,13 +743,13 @@ const dirDe = (fx: number, fy: number): Direction =>
 /** Sol et cadre de chaque arène : dessinés une seule fois dans un canvas en cache. */
 function dessinerFond(ctx: CanvasRenderingContext2D, arene: Arene): void {
   const th = arene.theme;
-  const base = th === "labo" ? "#1b2335" : th === "venus" ? "#110b1f" : "#37373d";
+  const base = th === "labo" ? "#141a2a" : th === "venus" ? "#110b1f" : "#37373d";
   r(ctx, 0, 0, L, H, base);
   for (let x = 0; x < L; x += 40)
     for (let y = 0; y < H; y += 40) {
       const k = hash(x * 3 + y * 7 + (th === "labo" ? 1 : th === "venus" ? 2 : 3));
       if (th === "labo") {
-        r(ctx, x, y, 40, 40, ((x + y) / 40) % 2 === 0 ? "#222c41" : "#1d2639");
+        r(ctx, x, y, 40, 40, ((x + y) / 40) % 2 === 0 ? "#1b2336" : "#161d2f");
         r(ctx, x, y, 40, 1, "#121826");
         r(ctx, x, y, 1, 40, "#121826");
         for (const [bx, by] of [
@@ -817,6 +834,7 @@ function dessinerFond(ctx: CanvasRenderingContext2D, arene: Arene): void {
       for (let i = 0; i < 4; i++) r(ctx, x - 12 + i * 7, y - 12, 3, 24, "#3d3d44");
     }
   }
+  circuitsNeon(ctx, L, H, th === "labo" ? 11 : th === "venus" ? 29 : 47);
   // Cadre de l'arène : mur bas avec liseré néon
   const neon = th === "labo" ? "#4fd1c5" : th === "venus" ? "#ff3ec8" : "#ffb02e";
   r(ctx, 0, 0, L, 8, "#0c0e16");
@@ -946,33 +964,22 @@ function dessinerArmeSprite(ctx: CanvasRenderingContext2D, type: Arme, ech = 1):
 /** Objet au sol : halo coloré, ou télégraphe (anneau qui se resserre) pendant l'apparition. */
 function dessinerObjet(ctx: CanvasRenderingContext2D, o: Ramassable, t: number): void {
   const couleur = o.type === "soin" ? "#6ee7a0" : ARMES[o.type].couleur;
-  if ((o.delai ?? 0) > 0) {
-    const k = (o.delai ?? 0) / TELEGRAPHE;
-    ctx.strokeStyle = couleur;
-    ctx.globalAlpha = 0.35 + 0.5 * (1 - k);
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 5]);
-    ctx.beginPath();
-    ctx.arc(o.x, o.y + 4, 10 + 22 * k, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.arc(o.x, o.y + 4, 8, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - k));
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-    return;
-  }
+  const delai = o.delai ?? 0;
+  // Anneaux de télégraphe : ils se resserrent pendant l'apparition puis pulsent tant que l'arme est là.
+  anneauxTelegraphe(ctx, o.x, o.y, t + o.id, delai > 0 ? delai / TELEGRAPHE : 0);
+  if (delai > 0) return;
   const bob = Math.sin(t * 4 + o.id) * 2;
-  halo(ctx, o.x, o.y + 4, 26 + Math.sin(t * 5 + o.id) * 3, couleur, 0.55);
-  ombre(ctx, o.x, o.y + 10, 10, 3, 0.4);
+  halo(ctx, o.x, o.y + 4, 30 + Math.sin(t * 5 + o.id) * 3, couleur, 0.45);
   ctx.save();
   ctx.translate(Math.round(o.x), Math.round(o.y - 2 + bob));
   if (o.type === "soin") {
-    bloc(ctx, -8, -8, 16, 16, "#f4f4f4");
-    r(ctx, -2, -6, 4, 12, "#e04b4b");
-    r(ctx, -6, -2, 12, 4, "#e04b4b");
-  } else dessinerArmeSprite(ctx, o.type, 1.3);
+    bloc(ctx, -10, -10, 20, 20, "#f4f4f4");
+    r(ctx, -3, -8, 6, 16, "#e04b4b");
+    r(ctx, -8, -3, 16, 6, "#e04b4b");
+  } else {
+    ctx.translate(-2, 0);
+    dessinerArmeSprite(ctx, o.type, 2);
+  }
   ctx.restore();
 }
 
@@ -1036,14 +1043,14 @@ function dessinerPersonnage(
   // Traînée de l'esquive
   if (p.dashT > 0) {
     ctx.globalAlpha = 0.35;
-    dessinerChibi(ctx, {
+    dessinerSoldat(ctx, {
       x: p.x - p.fx * 16,
       y: piedsY - p.fy * 16,
-      ech: 2,
-      a: apparenceDe(j),
-      dir: dirDe(p.fx, p.fy),
-      pose: "marche",
-      frame: 1,
+      fx: p.fx,
+      fy: p.fy,
+      equipe: j.equipe,
+      marche: 1,
+      mv: true,
     });
     ctx.globalAlpha = 1;
   }
@@ -1066,14 +1073,14 @@ function dessinerPersonnage(
     ctx.restore();
   };
   if (arriere) dessinerArme();
-  dessinerChibi(ctx, {
+  dessinerSoldat(ctx, {
     x: p.x,
     y: piedsY,
-    ech: 2,
-    a: apparenceDe(j),
-    dir,
-    pose: p.mv ? "marche" : p.touche > 0 ? "degat" : "idle",
-    frame: Math.floor(p.marche) % 4,
+    fx: p.fx,
+    fy: p.fy,
+    equipe: j.equipe,
+    marche: p.marche,
+    mv: !!p.mv,
     blanc: p.touche > 0,
   });
   if (!arriere) dessinerArme();
@@ -1093,7 +1100,7 @@ function dessinerPersonnage(
   }
   // Pastille de vie, nom et repères d'équipe
   const bx = Math.round(p.x - 17);
-  const by = Math.round(piedsY - 58);
+  const by = Math.round(piedsY - 64);
   r(ctx, bx - 1, by - 1, 36, 7, OL);
   r(ctx, bx, by, 34, 5, "#222");
   r(
@@ -1164,6 +1171,8 @@ function evenements(s: EtatArene, fx: Effets): void {
   for (const e of fx.nouveaux(s.ev)) {
     switch (e.k) {
       case "tir":
+        ajouterDouille(fx, e.x, e.y, Math.random());
+        ajouterEtoile(fx, e.x, e.y, 13, "#ffd166");
         fx.gerbe(e.x, e.y, 4, {
           couleur: ["#ffffff", e.c ?? "#ffd166"],
           vitesse: 150,
@@ -1175,6 +1184,7 @@ function evenements(s: EtatArene, fx: Effets): void {
         });
         break;
       case "impact":
+        ajouterEtoile(fx, e.x, e.y - 12, 20, "#ffe14d");
         fx.gerbe(e.x, e.y - 12, 9, {
           couleur: ["#ffffff", "#ffd166", "#ff6b6b"],
           vitesse: 170,
@@ -1208,9 +1218,9 @@ function evenements(s: EtatArene, fx: Effets): void {
         break;
       case "kill":
         fx.popup(e.x, e.y - 52, "+1 KO", e.c ?? "#ffd166", 18);
-        fx.gerbe(e.x, e.y - 14, 18, {
-          couleur: ["#ffd166", e.c ?? "#fff", "#ffffff"],
-          vitesse: 200,
+        fx.gerbe(e.x, e.y - 14, 34, {
+          couleur: ["#ff3fb4", "#19e6ff", "#ffd166", "#ff5d3a", e.c ?? "#fff", "#ffffff"],
+          vitesse: 230,
           vie: 0.7,
           lueur: true,
           grav: 280,
@@ -1256,6 +1266,7 @@ function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx
     dessinerFond(ctx, arene);
 
   // Tout ce qui est dessiné « debout » est trié du plus haut au plus bas de l'écran (profondeur).
+  dessinerDouilles(ctx, fx, 1 / 60);
   const liste: Array<{ y: number; d: () => void }> = [];
   arene.murs.forEach((m, i) =>
     liste.push({ y: m.y + m.h, d: () => dessinerMur(ctx, m, arene.theme, i, t) }),
@@ -1267,6 +1278,7 @@ function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx
   liste.sort((a, b) => a.y - b.y);
   for (const e of liste) e.d();
   for (const b of s.balles) dessinerBalle(ctx, b, fx);
+  dessinerEtoiles(ctx, fx, 1 / 60);
 
   fx.dessinerOndes(ctx);
   fx.dessinerParticules(ctx);
@@ -1274,58 +1286,15 @@ function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx
   fx.fin(ctx);
   fx.dessinerFlash(ctx, L, H);
 
-  // Tableau des scores
-  const n = s.p.length;
-  panneau(
-    ctx,
-    8,
-    8,
-    190,
-    24 + n * 17,
-    COULEUR_EQUIPE[s.joueurs.find((j) => j.id === moi)?.equipe ?? 0],
-  );
-  texte(ctx, `KILLS · ROUND ${s.manche + 1}/${NB_ROUNDS}`, 16, 21, 11, "#ffd166", "left");
-  s.p.forEach((p, i) => {
-    const j = s.joueurs[i]!;
-    r(ctx, 16, 33 + i * 17, 6, 11, COULEUR_EQUIPE[j.equipe]);
-    texte(
-      ctx,
-      `${j.pseudo.slice(0, 11)}${j.id === moi ? " ◄" : ""}`,
-      28,
-      39 + i * 17,
-      11,
-      "#fff",
-      "left",
-    );
-    texte(ctx, String(p.kills), 186, 39 + i * 17, 12, "#ffd166", "right");
-  });
-  // Arme, munitions et esquive
-  const moiP = s.p.find((p) => p.id === moi);
-  if (moiP) {
-    const def = ARMES[moiP.arme];
-    panneau(ctx, L / 2 - 170, H - 34, 340, 26, def.couleur);
-    ctx.save();
-    ctx.translate(L / 2 - 148, H - 21);
-    if (moiP.arme !== "poing") dessinerArmeSprite(ctx, moiP.arme, 1);
-    else r(ctx, -5, -4, 10, 8, "#f1c9a5");
-    ctx.restore();
-    texte(ctx, def.nom, L / 2 - 126, H - 21, 11, def.couleur, "left");
-    const mun = moiP.munitions > 1000 ? "∞" : String(Math.round(moiP.munitions));
-    texte(ctx, mun, L / 2 - 20, H - 21, 13, "#fff");
-    const k = 1 - moiP.dash / DASH_RECHARGE;
-    r(ctx, L / 2 + 20, H - 26, 120, 8, "#222");
-    r(ctx, L / 2 + 20, H - 26, 120 * k, 8, k >= 1 ? "#4fd1c5" : "#556");
-    texte(ctx, k >= 1 ? "ESQUIVE (B)" : "ESQUIVE…", L / 2 + 80, H - 12, 9, "#cde");
-  }
-  dessinerScoresEquipes(ctx, s);
+  dessinerHudArene(ctx, s, moi);
   dessinerMinicarte(ctx, s, arene, moi);
-  texte(ctx, arene.nom, L / 2, 64, 11, "rgba(255,255,255,0.7)");
+  texte(ctx, arene.nom, L / 2, 56, 10, "rgba(255,255,255,0.7)");
   if (s.entracte > 0 && s.phase === "jeu") {
     r(ctx, 0, H / 2 - 52, L, 104, "rgba(0,0,0,0.7)");
     texte(ctx, `ROUND ${s.manche + 1}`, L / 2, H / 2 - 14, 36, "#ffd166");
     texte(ctx, arene.nom, L / 2, H / 2 + 24, 20, "#fff");
   }
-  dessinerHud(ctx, s, L, H);
+  dessinerHud(ctx, s, L, H, false);
 }
 
 const NOM_EQUIPE_HUD: Record<Equipe, string> = {
@@ -1335,19 +1304,66 @@ const NOM_EQUIPE_HUD: Record<Equipe, string> = {
   3: "TEAM YELLOW",
 };
 
-/** Scores d'équipe (kills cumulés) sous le chrono : « TEAM BLUE 12 - TEAM RED 9 ». */
-function dessinerScoresEquipes(ctx: CanvasRenderingContext2D, s: EtatArene): void {
+/** HUD de l'arène : joueur et arme en haut à gauche, chrono + scores au centre, cartes d'armes en bas. */
+function dessinerHudArene(ctx: CanvasRenderingContext2D, s: EtatArene, moi: string): void {
+  const moiP = s.p.find((p) => p.id === moi);
+  const moiJ = s.joueurs.find((j) => j.id === moi);
   const equipes = equipesDe(s.joueurs);
   const total = (e: Equipe) =>
     s.p.reduce((t, p, i) => t + (s.joueurs[i]!.equipe === e ? p.kills : 0), 0);
-  const l = equipes.length > 2 ? 150 : 100;
-  panneau(ctx, L / 2 - l * 1.1, 36, l * 2.2, 20, "#19e6ff");
-  const pas = (l * 2) / equipes.length;
-  equipes.forEach((e, i) => {
-    const cx = L / 2 - l + pas * (i + 0.5);
-    const txt = equipes.length > 2 ? `${NOM_EQUIPE_HUD[e].slice(5)} ${total(e)}` : `${NOM_EQUIPE_HUD[e]} ${total(e)}`;
-    texte(ctx, txt, cx, 47, 9, COULEUR_EQUIPE[e]);
-  });
+  const restant = Math.max(0, s.duree - s.t);
+  chronoTrapeze(
+    ctx,
+    L / 2,
+    formaterTemps(Math.ceil(restant)).replace(/^(\d+):/, "$1:"),
+    s.phase === "jeu" && restant <= 10,
+    equipes.map((e) => ({
+      nom: equipes.length > 2 ? NOM_EQUIPE_HUD[e].slice(5) : NOM_EQUIPE_HUD[e],
+      score: total(e),
+      couleur: COULEUR_EQUIPE[e],
+    })),
+  );
+  if (!moiP || !moiJ) return;
+  const def = ARMES[moiP.arme];
+  // En haut à gauche : « PLAYER - NOM », barre de vie cyan, arme et munitions
+  texte(ctx, `${moiJ.pseudo.toUpperCase()} · ROUND ${s.manche + 1}/${NB_ROUNDS}`, 10, 12, 10, "#ffffff", "left");
+  r(ctx, 8, 20, 202, 16, "#050a1c");
+  r(ctx, 10, 22, 198, 12, "#0e2a3a");
+  r(ctx, 10, 22, 198 * (Math.max(0, moiP.pv) / PV_MAX), 12, "#19e6ff");
+  r(ctx, 10, 22, 198 * (Math.max(0, moiP.pv) / PV_MAX), 3, "rgba(255,255,255,0.4)");
+  const mun = moiP.munitions > 1000 ? "∞" : `${Math.round(moiP.munitions)}/${def.munitions > 1000 ? "∞" : def.munitions}`;
+  texte(ctx, `${def.nom.toUpperCase()} - ${mun}`, 10, 46, 10, "#ffffff", "left");
+  // Esquive
+  const k = 1 - moiP.dash / DASH_RECHARGE;
+  r(ctx, 10, 54, 80, 4, "#0e2a3a");
+  r(ctx, 10, 54, 80 * k, 4, k >= 1 ? "#4fd1c5" : "#556");
+  texte(ctx, k >= 1 ? "ESQUIVE (K)" : "ESQUIVE…", 96, 56, 8, "#9fdcff", "left");
+  // En bas : arme équipée (équipe du joueur) et arme du premier adversaire vivant
+  const adv = s.p.find((p, i) => s.joueurs[i]!.equipe !== moiJ.equipe && p.respawn <= 0);
+  const advJ = adv ? s.joueurs[s.p.indexOf(adv)] : undefined;
+  const icone = (arme: Arme) => (c: CanvasRenderingContext2D, x: number, y: number) => {
+    c.save();
+    c.translate(x - 10, y - 4);
+    if (arme === "poing") r(c, 2, 2, 12, 8, "#f1c9a5");
+    else dessinerArmeSprite(c, arme, 1.4);
+    c.restore();
+  };
+  cartesArmes(ctx, L / 2, H - 8, [
+    {
+      carte: { nom: def.nom, couleur: COULEUR_EQUIPE[moiJ.equipe], touche: "M", actif: true },
+      sousTitre: NOM_EQUIPE_HUD[moiJ.equipe],
+      icone: icone(moiP.arme),
+    },
+    ...(adv && advJ
+      ? [
+          {
+            carte: { nom: ARMES[adv.arme].nom, couleur: COULEUR_EQUIPE[advJ.equipe], touche: "M", actif: false },
+            sousTitre: NOM_EQUIPE_HUD[advJ.equipe],
+            icone: icone(adv.arme),
+          },
+        ]
+      : []),
+  ]);
 }
 
 /** Minicarte en haut à droite : murs, armes au sol et joueurs vivants (toi en blanc cerclé). */
