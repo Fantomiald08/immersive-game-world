@@ -1317,13 +1317,77 @@ function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx
     r(ctx, L / 2 + 20, H - 26, 120 * k, 8, k >= 1 ? "#4fd1c5" : "#556");
     texte(ctx, k >= 1 ? "ESQUIVE (B)" : "ESQUIVE…", L / 2 + 80, H - 12, 9, "#cde");
   }
-  texte(ctx, arene.nom, L / 2, 46, 12, "rgba(255,255,255,0.85)");
+  dessinerScoresEquipes(ctx, s);
+  dessinerMinicarte(ctx, s, arene, moi);
+  texte(ctx, arene.nom, L / 2, 64, 11, "rgba(255,255,255,0.7)");
   if (s.entracte > 0 && s.phase === "jeu") {
     r(ctx, 0, H / 2 - 52, L, 104, "rgba(0,0,0,0.7)");
     texte(ctx, `ROUND ${s.manche + 1}`, L / 2, H / 2 - 14, 36, "#ffd166");
     texte(ctx, arene.nom, L / 2, H / 2 + 24, 20, "#fff");
   }
   dessinerHud(ctx, s, L, H);
+}
+
+const NOM_EQUIPE_HUD: Record<Equipe, string> = {
+  0: "TEAM BLUE",
+  1: "TEAM RED",
+  2: "TEAM GREEN",
+  3: "TEAM YELLOW",
+};
+
+/** Scores d'équipe (kills cumulés) sous le chrono : « TEAM BLUE 12 - TEAM RED 9 ». */
+function dessinerScoresEquipes(ctx: CanvasRenderingContext2D, s: EtatArene): void {
+  const equipes = equipesDe(s.joueurs);
+  const total = (e: Equipe) =>
+    s.p.reduce((t, p, i) => t + (s.joueurs[i]!.equipe === e ? p.kills : 0), 0);
+  const l = equipes.length > 2 ? 150 : 100;
+  panneau(ctx, L / 2 - l * 1.1, 36, l * 2.2, 20, "#19e6ff");
+  const pas = (l * 2) / equipes.length;
+  equipes.forEach((e, i) => {
+    const cx = L / 2 - l + pas * (i + 0.5);
+    const txt = equipes.length > 2 ? `${NOM_EQUIPE_HUD[e].slice(5)} ${total(e)}` : `${NOM_EQUIPE_HUD[e]} ${total(e)}`;
+    texte(ctx, txt, cx, 47, 9, COULEUR_EQUIPE[e]);
+  });
+}
+
+/** Minicarte en haut à droite : murs, armes au sol et joueurs vivants (toi en blanc cerclé). */
+function dessinerMinicarte(
+  ctx: CanvasRenderingContext2D,
+  s: EtatArene,
+  arene: Arene,
+  moi: string,
+): void {
+  const w = 120;
+  const h = Math.round((w * H) / L);
+  const x0 = L - w - 10;
+  const y0 = 8;
+  const k = w / L;
+  ctx.save();
+  ctx.fillStyle = "rgba(6,10,24,0.82)";
+  ctx.fillRect(x0 - 2, y0 - 2, w + 4, h + 4);
+  ctx.strokeStyle = "#19e6ff";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x0 - 1.5, y0 - 1.5, w + 3, h + 3);
+  ctx.fillStyle = "rgba(90,110,160,0.75)";
+  for (const m of arene.murs)
+    ctx.fillRect(x0 + m.x * k, y0 + m.y * k, Math.max(1, m.w * k), Math.max(1, m.h * k));
+  for (const o of s.objets) {
+    ctx.fillStyle = (o.delai ?? 0) > 0 ? "rgba(255,47,180,0.6)" : "#ffe14d";
+    ctx.fillRect(Math.round(x0 + o.x * k - 1.5), Math.round(y0 + o.y * k - 1.5), 3, 3);
+  }
+  s.p.forEach((p, i) => {
+    if (p.respawn > 0) return;
+    const j = s.joueurs[i]!;
+    const px = Math.round(x0 + p.x * k);
+    const py = Math.round(y0 + p.y * k);
+    ctx.fillStyle = COULEUR_EQUIPE[j.equipe];
+    ctx.fillRect(px - 2, py - 2, 4, 4);
+    if (j.id === moi) {
+      ctx.strokeStyle = "#fff";
+      ctx.strokeRect(px - 3.5, py - 3.5, 7, 7);
+    }
+  });
+  ctx.restore();
 }
 
 export const arene: Jeu = {

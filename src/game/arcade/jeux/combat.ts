@@ -179,6 +179,7 @@ function toucher(
   defAtt: DefAttaque,
   sens: 1 | -1,
   devantCible: boolean,
+  tireur?: Combattant,
 ): void {
   if (cible.ko) return;
   const type: TypeAttaque = defAtt === ATTAQUES.a ? "a" : defAtt === ATTAQUES.b ? "b" : "c";
@@ -199,6 +200,12 @@ function toucher(
     // Hitstop : plus le coup est lourd, plus l'image se fige (le chrono, lui, continue).
     s.gel = Math.max(s.gel, type === "a" ? 0.035 : type === "b" ? 0.075 : 0.09);
     emettre(s, { k: "impact", x: ex, y: ey, v: defAtt.degats, qui: cible.id });
+  }
+  // La jauge du coup spécial se charge en frappant (plus qu'en se faisant parer) et en encaissant.
+  if (defAtt !== ATTAQUES.c) {
+    const garde = cible.garde && devantCible;
+    if (tireur) tireur.cdSpecial = Math.max(0, tireur.cdSpecial - (garde ? 0.15 : 0.4));
+    if (!garde) cible.cdSpecial = Math.max(0, cible.cdSpecial - defAtt.degats * 0.03);
   }
   if (cible.pv <= 0) {
     cible.ko = true;
@@ -304,7 +311,7 @@ function pas(base: EtatBase, entrees: Readonly<Record<string, number>>, dt: numb
             if (Math.abs(q.y - c.y) > HAUT * 0.8) continue;
             a.touches.push(q.id);
             const devant = (c.x - q.x) * q.face > 0;
-            toucher(s, q, def, c.face, devant);
+            toucher(s, q, def, c.face, devant, c);
           }
         }
         if (a.t >= def.total) c.atk = null;
