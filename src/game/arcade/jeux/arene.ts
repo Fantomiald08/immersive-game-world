@@ -1277,6 +1277,7 @@ function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx
   );
   liste.sort((a, b) => a.y - b.y);
   for (const e of liste) e.d();
+  dessinerAides(ctx, s, moi, t);
   for (const b of s.balles) dessinerBalle(ctx, b, fx);
   dessinerEtoiles(ctx, fx, 1 / 60);
 
@@ -1288,6 +1289,7 @@ function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx
 
   dessinerHudArene(ctx, s, moi);
   dessinerMinicarte(ctx, s, arene, moi);
+  dessinerFilKills(ctx, s, fx);
   texte(ctx, arene.nom, L / 2, 56, 10, "rgba(255,255,255,0.7)");
   if (s.entracte > 0 && s.phase === "jeu") {
     r(ctx, 0, H / 2 - 52, L, 104, "rgba(0,0,0,0.7)");
@@ -1295,6 +1297,101 @@ function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx
     texte(ctx, arene.nom, L / 2, H / 2 + 24, 20, "#fff");
   }
   dessinerHud(ctx, s, L, H, false);
+}
+
+/** Aides de jeu pour le joueur local : viseur laser et flèche vers l'arme ou le soin dont il a besoin. */
+function dessinerAides(ctx: CanvasRenderingContext2D, s: EtatArene, moi: string, t: number): void {
+  const i = s.joueurs.findIndex((j) => j.id === moi);
+  const p = s.p[i];
+  if (!p || p.respawn > 0 || s.phase !== "jeu" || s.entracte > 0) return;
+  const def = ARMES[p.arme];
+  if (p.arme !== "poing") {
+    const lon = Math.min(170, def.vitesse * def.vie * 0.6);
+    const x0 = p.x + p.fx * 16;
+    const y0 = p.y - 6 + p.fy * 8;
+    ctx.save();
+    ctx.setLineDash([4, 6]);
+    ctx.strokeStyle = "rgba(255,80,120,0.35)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x0 + p.fx * lon, y0 + p.fy * lon);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    r(ctx, x0 + p.fx * lon - 1, y0 + p.fy * lon - 1, 3, 3, "rgba(255,80,120,0.7)");
+    ctx.restore();
+  }
+  // Flèche vers l'objet utile le plus proche (arme si poings / presque vide, soin si blessé)
+  const besoinSoin = p.pv < 45;
+  const besoinArme = p.arme === "poing" || p.munitions <= 3;
+  if (!besoinSoin && !besoinArme) return;
+  let cible: Ramassable | null = null;
+  let dmin = Infinity;
+  for (const o of s.objets) {
+    if ((o.delai ?? 0) > 0) continue;
+    if (besoinSoin ? o.type !== "soin" : o.type === "soin") continue;
+    const d = Math.hypot(o.x - p.x, o.y - p.y);
+    if (d < dmin) {
+      dmin = d;
+      cible = o;
+    }
+  }
+  if (!cible || dmin < 60) return;
+  const a = Math.atan2(cible.y - p.y, cible.x - p.x);
+  const rr = 46 + Math.sin(t * 6) * 3;
+  ctx.save();
+  ctx.translate(p.x + Math.cos(a) * rr, p.y - 8 + Math.sin(a) * rr);
+  ctx.rotate(a);
+  ctx.fillStyle = besoinSoin ? "#6ee7a0" : "#ffd166";
+  ctx.shadowColor = ctx.fillStyle;
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  ctx.moveTo(8, 0);
+  ctx.lineTo(-5, -6);
+  ctx.lineTo(-2, 0);
+  ctx.lineTo(-5, 6);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+type EntreeFil = { texte: string; couleur: string; age: number };
+const FILS = new WeakMap<object, { kills: number[]; morts: number[]; liste: EntreeFil[] }>();
+
+/** Fil des éliminations (en haut à gauche) : « Léo ▸ Rex », déduit des variations de kills / morts. */
+function dessinerFilKills(ctx: CanvasRenderingContext2D, s: EtatArene, fx: Effets): void {
+  let f = FILS.get(fx);
+  if (!f || f.kills.length !== s.p.length) {
+    f = { kills: s.p.map((p) => p.kills), morts: s.p.map((p) => p.morts), liste: [] };
+    FILS.set(fx, f);
+  }
+  const tueurs: number[] = [];
+  const victimes: number[] = [];
+  s.p.forEach((p, i) => {
+    if (p.kills > f!.kills[i]!) tueurs.push(i);
+    if (p.morts > f!.morts[i]!) victimes.push(i);
+    f!.kills[i] = p.kills;
+    f!.morts[i] = p.morts;
+  });
+  if (tueurs.length && victimes.length) {
+    const k = tueurs[0]!;
+    const v = victimes[0]!;
+    f.liste.unshift({
+      texte: `${s.joueurs[k]!.pseudo.slice(0, 9)} ▸ ${s.joueurs[v]!.pseudo.slice(0, 9)}`,
+      couleur: COULEUR_EQUIPE[s.joueurs[k]!.equipe],
+      age: 0,
+    });
+    if (f.liste.length > 4) f.liste.pop();
+  }
+  f.liste.forEach((e, k) => {
+    e.age += 1 / 60;
+  });
+  f.liste = f.liste.filter((e) => e.age < 5);
+  f.liste.forEach((e, k) => {
+    ctx.globalAlpha = Math.min(1, (5 - e.age) / 1.2);
+    texte(ctx, e.texte, 10, 76 + k * 13, 10, e.couleur, "left");
+  });
+  ctx.globalAlpha = 1;
 }
 
 const NOM_EQUIPE_HUD: Record<Equipe, string> = {
@@ -1332,7 +1429,9 @@ function dessinerHudArene(ctx: CanvasRenderingContext2D, s: EtatArene, moi: stri
   r(ctx, 10, 22, 198 * (Math.max(0, moiP.pv) / PV_MAX), 12, "#19e6ff");
   r(ctx, 10, 22, 198 * (Math.max(0, moiP.pv) / PV_MAX), 3, "rgba(255,255,255,0.4)");
   const mun = moiP.munitions > 1000 ? "∞" : `${Math.round(moiP.munitions)}/${def.munitions > 1000 ? "∞" : def.munitions}`;
-  texte(ctx, `${def.nom.toUpperCase()} - ${mun}`, 10, 46, 10, "#ffffff", "left");
+  const faible = moiP.arme !== "poing" && moiP.munitions <= Math.max(3, def.munitions * 0.2);
+  texte(ctx, `${def.nom.toUpperCase()} - ${mun}`, 10, 46, 10, faible && Math.floor(s.t * 4) % 2 === 0 ? "#ff6b6b" : "#ffffff", "left");
+  if (faible) texte(ctx, "MUNITIONS FAIBLES", 120, 46, 8, "#ff6b6b", "left");
   // Esquive
   const k = 1 - moiP.dash / DASH_RECHARGE;
   r(ctx, 10, 54, 80, 4, "#0e2a3a");
