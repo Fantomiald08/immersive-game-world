@@ -377,16 +377,14 @@ function spriteVoiturePret(): HTMLImageElement | null {
   return SPRITE_VOITURE && SPRITE_VOITURE.complete && SPRITE_VOITURE.naturalWidth > 0 ? SPRITE_VOITURE : null;
 }
 
-/** Dessine l'illustration en plein cadre (cover) derrière la piste ; renvoie false si elle n'est pas chargée. */
-function dessinerFondIllustre(ctx: CanvasRenderingContext2D, defil: number): boolean {
+/** Dessine l'illustration en plein cadre, fixe (cover), comme décor de la course. */
+function dessinerFondIllustre(ctx: CanvasRenderingContext2D): void {
   const img = fondPret();
-  if (!img) return false;
-  const ratio = Math.max(L / img.naturalWidth, (HORIZON + 40) / img.naturalHeight);
+  if (!img) return;
+  const ratio = Math.max(L / img.naturalWidth, H / img.naturalHeight);
   const w = img.naturalWidth * ratio;
   const h = img.naturalHeight * ratio;
-  const dx = -((defil / L_CIEL) * (w - L)) % Math.max(1, w - L);
-  ctx.drawImage(img, dx, HORIZON + 40 - h, w, h);
-  return true;
+  ctx.drawImage(img, (L - w) / 2, (H - h) / 2, w, h);
 }
 
 /** Ciel nocturne, skyline urbaine, enceinte d'arène à gradins et projecteurs (couche en cache). */
@@ -1005,7 +1003,9 @@ function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx
   ctx.rotate(cam.roulis);
   ctx.scale(1.1, 1.1);
   ctx.translate(-L / 2, -H * 0.72);
-  r(ctx, -120, -120, L + 240, HORIZON + 122, "#020208");
+  const illustre = fondPret() !== null;
+  if (illustre) dessinerFondIllustre(ctx);
+  else r(ctx, -120, -120, L + 240, HORIZON + 122, "#020208");
 
   // Voûte de l'arène qui défile avec le cap de la caméra
   const scroll = ((((-Math.atan2(cam.sinP, cam.cosP) * 540 * 0.9) % L_CIEL) + L_CIEL) % L_CIEL);
@@ -1017,7 +1017,6 @@ function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx
       ctx.restore();
     }
   };
-  const illustre = dessinerFondIllustre(ctx, scroll);
   if (!illustre) {
     dessinerCielDecale(-scroll);
     dessinerCielDecale(L_CIEL - scroll);
@@ -1039,8 +1038,10 @@ function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx
   sol.addColorStop(0, "#1a1030");
   sol.addColorStop(0.25, "#0a0a18");
   sol.addColorStop(1, "#04040a");
+  if (!illustre) {
   ctx.fillStyle = sol;
   ctx.fillRect(-120, HORIZON, L + 240, H + 200 - HORIZON);
+  }
 
   const { moiPx, moiPy } = dessinerScene(ctx, cam, {
     fondIllustre: illustre,
