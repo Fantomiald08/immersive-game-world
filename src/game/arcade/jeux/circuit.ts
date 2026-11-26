@@ -8,37 +8,42 @@ export const TOURS = 3;
 
 /** [longueur du tronçon en m, courbure]. >0 = vers la droite. Jamais de longue ligne droite. */
 const BRUT: ReadonlyArray<readonly [number, number]> = [
-  [70, 0.5],
-  [110, 0.9],
-  [90, -1.0],
-  [100, 0.8],
-  [70, 1.3],
-  [60, -0.5],
-  [120, -1.1],
-  [80, 0.7],
-  [70, -1.2],
-  [90, 1.0],
-  [110, -0.9],
   [60, 0.4],
-  [100, 1.2],
-  [90, -0.8],
-  [80, 1.3],
-  [110, -1.0],
-  [70, 0.6],
-  [100, -1.2],
+  [90, -0.9],
+  // Boucle 1 : grand virage en spirale vers la droite qui se resserre
+  [120, 1.1],
+  [130, 1.5],
+  [110, 1.7],
+  // S rapide puis épingle à gauche
+  [90, -1.2],
+  [100, 1.0],
+  [70, -1.9],
+  [80, 0.8],
+  [70, -0.9],
+  // Boucle 2 : spirale vers la gauche
+  [110, -1.2],
+  [130, -1.5],
+  [110, -1.6],
+  // Chicane serrée
+  [60, 1.1],
+  [60, -1.1],
+  [60, 1.1],
+  [100, -0.7],
+  // Boucle 3 : la plus serrée, qui finit en épingle
+  [100, 1.3],
+  [120, 1.6],
+  [110, 1.8],
+  [80, 1.4],
+  [90, -1.3],
+  [70, 1.9],
+  [80, -1.0],
   [90, 0.9],
-  [120, -0.7],
-  [80, 1.1],
-  [100, -1.3],
-  [60, 0.5],
-  [130, -0.9],
-  [90, 1.0],
 ];
 const SOMME = BRUT.reduce((t, [l]) => t + l, 0);
 /** Le dernier tronçon complète la boucle exactement. */
 export const TRONCONS: ReadonlyArray<readonly [number, number]> = [
   ...BRUT,
-  [LONGUEUR_TOUR - SOMME, -0.6],
+  [LONGUEUR_TOUR - SOMME, -0.9],
 ];
 
 const mod = (z: number) => ((z % LONGUEUR_TOUR) + LONGUEUR_TOUR) % LONGUEUR_TOUR;
@@ -50,6 +55,28 @@ export function courbure(z: number): number {
     d -= l;
   }
   return 0;
+}
+
+/** Courbure moyenne sur une fenêtre autour de z (pour des changements de caméra progressifs). */
+export function courbureLissee(z: number, avant = 90, arriere = 30): number {
+  let t = 0;
+  const n = 10;
+  for (let i = 0; i < n; i++) t += courbure(z - arriere + ((avant + arriere) * i) / (n - 1));
+  return t / n;
+}
+
+/**
+ * Profil de caméra le long de la boucle : relief (la ligne d'horizon monte et descend comme sur des bosses),
+ * recul supplémentaire et roulis dans les grandes boucles. Valeurs cibles, lissées par le dessin.
+ */
+export function profilCamera(z: number): { horizon: number; recul: number; roulis: number } {
+  const c = courbureLissee(z);
+  const relief = Math.sin(z / 210) * 18 + Math.sin(z / 87 + 1.3) * 9;
+  return {
+    horizon: relief - Math.abs(c) * 7,
+    recul: Math.min(2.6, Math.abs(c) * 1.7),
+    roulis: -c * 0.04,
+  };
 }
 
 /** Cap (direction) cumulé le long de la boucle, pour faire défiler le décor lointain avec les virages. */

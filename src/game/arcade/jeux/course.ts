@@ -2,6 +2,8 @@ import { borne, dessinerHud, emettre, formaterChrono, meilleureEquipe } from "..
 import type { Effets } from "../fx";
 import { decorEnCache, halo, hash, ombre, OL, panneau, r, texte } from "../rendu/pixel";
 import { glyphes } from "../rendu/dojo";
+import { creerCamera, dessinerScene } from "../rendu/course3d";
+import { dessinerFouleFond } from "../rendu/foule";
 import {
   BTN,
   COULEUR_EQUIPE,
@@ -19,6 +21,7 @@ import {
   BONUS_RACCOURCI,
   cap,
   courbure,
+  profilCamera,
   ecartBoucle,
   FORKS,
   forkA,
@@ -285,8 +288,10 @@ function finir(base: EtatBase): Resultat {
 
 /* ═════════════════════════ RENDU : l'arène néon urbaine ═════════════════════════ */
 
-const HORIZON = 164;
-const LIGNES = H - HORIZON;
+const HORIZON_BASE = 164;
+/** Ligne d'horizon courante : elle monte et descend avec le relief du circuit (changements de caméra). */
+let HORIZON = HORIZON_BASE;
+let LIGNES = H - HORIZON;
 /** Demi-largeur de la route (px) au bas de l'écran. */
 const BAS = 340;
 /** Recul de la caméra derrière le véhicule du joueur (m) pour une meilleure anticipation. */
@@ -352,6 +357,37 @@ function calculerLignes(
 
 /** Ligne de l'écran où se projette un point situé `dz` mètres devant la caméra. */
 const rowDe = (dz: number): number => HORIZON + LIGNES / (1 + dz / ECH);
+
+/* ───── Illustration de fond (image fournie par le projet, public/arcade/course-fond.png) ───── */
+let FOND: HTMLImageElement | null = null;
+function fondPret(): HTMLImageElement | null {
+  if (FOND === null && typeof Image !== "undefined") {
+    FOND = new Image();
+    FOND.src = "/arcade/course-fond.png";
+  }
+  return FOND && FOND.complete && FOND.naturalWidth > 0 ? FOND : null;
+}
+
+let SPRITE_VOITURE: HTMLImageElement | null = null;
+function spriteVoiturePret(): HTMLImageElement | null {
+  if (SPRITE_VOITURE === null && typeof Image !== "undefined") {
+    SPRITE_VOITURE = new Image();
+    SPRITE_VOITURE.src = "/arcade/voiture-joueur.png";
+  }
+  return SPRITE_VOITURE && SPRITE_VOITURE.complete && SPRITE_VOITURE.naturalWidth > 0 ? SPRITE_VOITURE : null;
+}
+
+/** Dessine l'illustration en plein cadre (cover) derrière la piste ; renvoie false si elle n'est pas chargée. */
+function dessinerFondIllustre(ctx: CanvasRenderingContext2D, defil: number): boolean {
+  const img = fondPret();
+  if (!img) return false;
+  const ratio = Math.max(L / img.naturalWidth, (HORIZON + 40) / img.naturalHeight);
+  const w = img.naturalWidth * ratio;
+  const h = img.naturalHeight * ratio;
+  const dx = -((defil / L_CIEL) * (w - L)) % Math.max(1, w - L);
+  ctx.drawImage(img, dx, HORIZON + 40 - h, w, h);
+  return true;
+}
 
 /** Ciel nocturne, skyline urbaine, enceinte d'arène à gradins et projecteurs (couche en cache). */
 function dessinerCiel(ctx: CanvasRenderingContext2D): void {
@@ -424,6 +460,8 @@ function dessinerCiel(ctx: CanvasRenderingContext2D): void {
       }
     } else glyphes(ctx, x + 6, 48, w - 12, h - 14, rose ? "#ff9ad5" : "#bff6ff", k * 31 + 5);
   }
+  // Public en pixel-art sur les gradins de fond
+  dessinerFouleFond(ctx, L_CIEL, HORIZON_BASE - 4);
   // Panneaux étroits en kana lumineux
   for (let k = 0; k < 6; k++) {
     const x = 130 + k * 270 + hash(k + 9) * 40;
@@ -929,6 +967,8 @@ function evenements(s: EtatCourse, moi: string, fx: Effets): void {
   }
 }
 
+const CAM = { horizon: 0, recul: 0, roulis: 0 };
+
 function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx: Effets): void {
   const s = base as EtatCourse;
   const idxMoi = Math.max(
@@ -940,11 +980,19 @@ function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx
   const moiJ = s.joueurs[idxMoi]!;
   evenements(s, moi, fx);
 
-  // Caméra reculée derrière la voiture (+ léger recul sous nitro/boost) et suivi latéral souple
+  // Caméra 3D reculée et surélevée derrière la voiture ; recul, hauteur et roulis suivent le tronçon
   const vit = Math.max(0, me.v) / VMAX;
-  const recul = CAM_RECUL + (me.nitro > 0 || me.boost > 0 ? 0.9 : 0);
-  const camZ = me.z - recul;
-  const camX = me.x * 0.82;
+  const cible = profilCamera(me.z);
+  const kc = Math.min(1, fx.dt * 2.5);
+  CAM.horizon += (cible.horizon - CAM.horizon) * kc;
+  CAM.recul += (cible.recul - CAM.recul) * kc;
+  CAM.roulis += (cible.roulis - CAM.roulis) * Math.min(1, fx.dt * 4);
+  const boostCam = me.nitro > 0 || me.boost > 0 ? 1.2 : 0;
+  const recul = 11 + boostCam * 2;
+  const cam = creerCamera(me.z, me.x, recul, CAM.recul, CAM.recul * 1.5, CAM.roulis * 1.7);
+  const camZ = me.z - recul - CAM.recul * 2.4;
+  HORIZON = Math.round(cam.horizonY);
+  LIGNES = H - HORIZON;
 
   const cibleX = -me.dir * 5 - courbure(me.z + 25) * 6 * vit;
   fx.cam.x += (cibleX - fx.cam.x) * Math.min(1, fx.dt * 6);
@@ -952,19 +1000,28 @@ function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx
 
   fx.debut(ctx);
   ctx.translate(Math.round(fx.cam.x), Math.round(fx.cam.y));
+  // Roulis de la caméra dans les virages (zoom léger pour cacher les coins)
+  ctx.translate(L / 2, H * 0.72);
+  ctx.rotate(cam.roulis);
+  ctx.scale(1.1, 1.1);
+  ctx.translate(-L / 2, -H * 0.72);
+  r(ctx, -120, -120, L + 240, HORIZON + 122, "#020208");
 
-  // Ciel et enceinte lointaine, qui défilent avec les virages
-  const scroll = (((cap(camZ) * 0.9 - camX * 14) % L_CIEL) + L_CIEL) % L_CIEL;
+  // Voûte de l'arène qui défile avec le cap de la caméra
+  const scroll = ((((-Math.atan2(cam.sinP, cam.cosP) * 540 * 0.9) % L_CIEL) + L_CIEL) % L_CIEL);
   const dessinerCielDecale = (dx: number) => {
-    if (!decorEnCache("course-ciel", L_CIEL, HORIZON + 2, dessinerCiel, ctx, dx, 0)) {
+    if (!decorEnCache("course-ciel", L_CIEL, HORIZON_BASE + 2, dessinerCiel, ctx, dx, HORIZON - HORIZON_BASE)) {
       ctx.save();
-      ctx.translate(dx, 0);
+      ctx.translate(dx, HORIZON - HORIZON_BASE);
       dessinerCiel(ctx);
       ctx.restore();
     }
   };
-  dessinerCielDecale(-scroll);
-  dessinerCielDecale(L_CIEL - scroll);
+  const illustre = dessinerFondIllustre(ctx, scroll);
+  if (!illustre) {
+    dessinerCielDecale(-scroll);
+    dessinerCielDecale(L_CIEL - scroll);
+  }
   // Projecteurs qui balaient le ciel
   for (let k = 0; k < 3; k++) {
     const a = Math.sin(fx.horloge * 0.7 + k * 2.1) * 0.5;
@@ -977,177 +1034,52 @@ function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx
     ctx.lineTo(bx - 4 + Math.tan(a) * 150 - 50, 0);
     ctx.fill();
   }
+  // Sol de l'arène sous l'horizon, avec reflets néon
+  const sol = ctx.createLinearGradient(0, HORIZON, 0, H + 80);
+  sol.addColorStop(0, "#1a1030");
+  sol.addColorStop(0.25, "#0a0a18");
+  sol.addColorStop(1, "#04040a");
+  ctx.fillStyle = sol;
+  ctx.fillRect(-120, HORIZON, L + 240, H + 200 - HORIZON);
 
-  const { lignes, parY } = calculerLignes(camZ, camX);
-
-  // La route, ligne par ligne, du lointain vers le proche
-  for (let k = lignes.length - 1; k >= 0; k--) {
-    const l = lignes[k]!;
-    const { y, hw, cx, bande, fork, zl } = l;
-    const pair = posMod(bande, 2) === 0;
-    r(ctx, 0, y, L, 1, pair ? "#0e0e18" : "#12121f");
-    r(ctx, cx - hw, y, hw * 2, 1, pair ? "#282836" : "#2f2f3f");
-    // Grain subtil d'asphalte sur la bande paire
-    if (pair && hw > 35) {
-      const gx = (hash(bande * 13 + y) - 0.5) * hw * 1.4;
-      r(ctx, cx + gx, y, Math.max(2, hw * 0.03), 1, "#373748");
-    }
-    // Vibreurs bicolores néon, qui défilent
-    r(ctx, cx - hw * 1.1, y, hw * 0.1, 1, pair ? NEONS[0] : NEONS[1]);
-    r(ctx, cx + hw, y, hw * 0.1, 1, pair ? NEONS[1] : NEONS[0]);
-    const rive = Math.max(1, hw * 0.022);
-    r(ctx, cx - hw * 0.97, y, rive, 1, "#e8e8f4");
-    r(ctx, cx + hw * 0.95, y, rive, 1, "#e8e8f4");
-    if (fork) {
-      const m = hw * MURET;
-      r(ctx, cx - m, y, m * 2, 1, pair ? "#0b0b13" : "#141420");
-      r(ctx, cx - m - rive, y, rive, 1, "#19e6ff");
-      r(ctx, cx + m, y, rive, 1, "#19e6ff");
-      // Voie intérieure plus étroite : au-delà de la limite, zone dangereuse
-      r(
-        ctx,
-        cx + hw * LIMITE_INTERIEURE,
-        y,
-        hw * (1 - LIMITE_INTERIEURE),
-        1,
-        pair ? "#d9a300" : "#17171f",
-      );
-      r(ctx, cx + hw * LIMITE_INTERIEURE - rive, y, rive * 1.5, 1, "#ff2fb4");
-    } else if (posMod(bande, 4) < 2)
-      r(ctx, cx - hw * 0.012, y, Math.max(1, hw * 0.024), 1, "#e8e8f4");
-    // Ligne de départ / arrivée en damier lumineux
-    if (zl < 6)
-      for (let q = 0; q < 12; q++)
-        r(
-          ctx,
-          cx - hw + (q * hw * 2) / 12,
-          y,
-          (hw * 2) / 12 + 1,
-          1,
-          (q + Math.floor(zl * 1.3)) % 2 === 0 ? "#f6f6ff" : "#101018",
-        );
-  }
-
-  // Flaques d'huile et dalles de boost (à plat)
-  for (const o of OBSTACLES)
-    if (o.type === "huile" || o.type === "boost") decalPlat(ctx, o, camZ, parY, fx.horloge);
-
-  // Gradins, barrières urbaines et lampadaires, bande par bande, du lointain vers le proche
-  type Groupe = { bande: number; yBas: number; yHaut: number };
-  const groupes: Groupe[] = [];
-  for (const l of lignes) {
-    const g = groupes[groupes.length - 1];
-    if (g && g.bande === l.bande) g.yHaut = l.y;
-    else groupes.push({ bande: l.bande, yBas: l.y, yHaut: l.y });
-  }
-  for (let k = groupes.length - 1; k >= 0; k--) {
-    const g = groupes[k]!;
-    const milieu = parY[Math.round((g.yBas + g.yHaut) / 2)];
-    if (!milieu) continue;
-    tribune(ctx, g.yBas, g.yHaut, milieu, -1, fx, s.v);
-    tribune(ctx, g.yBas, g.yHaut, milieu, 1, fx, s.v);
-  }
-
-  // Objets debout (voitures dont celle du joueur, plots, blocs, muret, portiques), du lointain vers le proche
-  const bb: Billboard[] = [];
-  const loin = PORTEE * ECH;
-  s.v.forEach((c, i) => {
-    const dz = c.z - camZ;
-    if (dz < 1.5 || dz > loin) return;
-    const j = s.joueurs[i]!;
-    const estMoi = c.id === me.id;
-    const allie = !estMoi && j.equipe === moiJ.equipe;
-    bb.push({
-      dz,
-      dessin: (l) => {
-        const px = l.cx + c.x * l.hw;
-        const larg = l.hw * 0.5;
-        const secousse = estMoi && Math.abs(c.x) > 1.02 && c.v > 8 ? Math.sin(s.t * 60) * 3 : 0;
-        const flam = c.nitro > 0 || c.boost > 0 ? 2 : c.v > 6 && !c.frein ? 0.6 : 0;
-        dessinerVoiture(ctx, px + secousse, l.y, larg, {
-          couleur: j.couleur,
-          frein: c.frein,
-          flammes: estMoi ? flam : c.nitro > 0 || c.boost > 0 ? 1.4 : 0.5,
-          incl: estMoi
-            ? c.dir * 1.6 + (c.glisse > 0 ? Math.sin(fx.horloge * 14) * 2 : 0)
-            : c.dir,
-          t: fx.horloge,
-        });
-        if (!estMoi && larg > 14) {
-          ctx.fillStyle = COULEUR_EQUIPE[j.equipe];
-          ctx.beginPath();
-          ctx.moveTo(px, l.y - larg * 1.2);
-          ctx.lineTo(px - larg * 0.12, l.y - larg * 1.2 - larg * 0.16);
-          ctx.lineTo(px + larg * 0.12, l.y - larg * 1.2 - larg * 0.16);
-          ctx.fill();
-          texte(
-            ctx,
-            (allie ? "♦ " : "") + j.pseudo.slice(0, 8),
-            px,
-            l.y - larg * 1.2 - larg * 0.34,
-            Math.max(8, Math.min(13, larg * 0.28)),
-            COULEUR_EQUIPE[j.equipe],
-          );
-        }
-      },
-    });
+  const { moiPx, moiPy } = dessinerScene(ctx, cam, {
+    fondIllustre: illustre,
+    voitureSprite: spriteVoiturePret(),
+    camZ,
+    horloge: fx.horloge,
+    sprites: { voiture: dessinerVoiture, plot, bloc: blocBeton },
+    voitures: s.v.map((c, i) => {
+      const j = s.joueurs[i]!;
+      const estMoi = c.id === me.id;
+      const allie = !estMoi && j.equipe === moiJ.equipe;
+      return {
+        z: c.z,
+        x: c.x,
+        couleur: j.couleur,
+        frein: c.frein,
+        flammes: estMoi
+          ? c.nitro > 0 || c.boost > 0
+            ? 2
+            : c.v > 6 && !c.frein
+              ? 0.6
+              : 0
+          : c.nitro > 0 || c.boost > 0
+            ? 1.4
+            : 0.5,
+        incl: estMoi ? c.dir * 1.6 + (c.glisse > 0 ? Math.sin(fx.horloge * 14) * 2 : 0) : c.dir,
+        estMoi,
+        etiquette: estMoi
+          ? undefined
+          : { texte: (allie ? "♦ " : "") + j.pseudo.slice(0, 8), couleur: COULEUR_EQUIPE[j.equipe] },
+        secousse: estMoi && Math.abs(c.x) > 1.02 && c.v > 8 ? Math.sin(s.t * 60) * 3 : 0,
+        dir: c.dir,
+        derape: c.glisse > 0,
+        vitesse: c.v,
+      };
+    }),
   });
-  for (const o of OBSTACLES) {
-    if (o.type === "huile" || o.type === "boost") continue;
-    const dz = modBoucle(o.z - camZ);
-    if (dz < 1.5 || dz > loin) continue;
-    bb.push({
-      dz,
-      dessin: (l) => {
-        const px = l.cx + o.x * l.hw;
-        if (o.type === "plot") plot(ctx, px, l.y, l.hw * 0.13, l.t, fx.horloge);
-        else blocBeton(ctx, px, l.y, l.hw * o.w, "#ff2fb4");
-      },
-    });
-  }
-  for (const f of FORKS) {
-    for (let z = f.debut; z <= f.fin; z += 10) {
-      const dz = modBoucle(z - camZ);
-      if (dz < 1.5 || dz > loin) continue;
-      bb.push({ dz, dessin: (l) => blocBeton(ctx, l.cx, l.y, l.hw * MURET * 2.4, "#19e6ff", 0.9) });
-    }
-    for (let z = f.debut; z <= f.fin; z += 18) {
-      const dz = modBoucle(z - camZ);
-      if (dz < 1.5 || dz > loin) continue;
-      bb.push({
-        dz,
-        dessin: (l) => {
-          const px = l.cx + (LIMITE_INTERIEURE + 0.05) * l.hw;
-          r(
-            ctx,
-            px - Math.max(1, l.hw * 0.01),
-            l.y - 36 * l.t,
-            Math.max(2, l.hw * 0.02),
-            36 * l.t,
-            "#1c1c29",
-          );
-          halo(ctx, px, l.y - 36 * l.t, 14 * l.t + 3, "#ff2fb4", 0.7);
-        },
-      });
-    }
-    const dzp = modBoucle(f.debut - 70 - camZ);
-    if (dzp > 1.5 && dzp < loin)
-      bb.push({ dz: dzp, dessin: (l) => portique(ctx, l, "fork", fx.horloge) });
-  }
-  const dzd = modBoucle(0 - camZ);
-  if (dzd > 1.5 && dzd < loin)
-    bb.push({ dz: dzd, dessin: (l) => portique(ctx, l, "depart", fx.horloge) });
-  bb.sort((a, b) => b.dz - a.dz);
-  for (const b of bb) {
-    const y = Math.round(rowDe(b.dz));
-    const l = parY[y];
-    if (l) b.dessin(l);
-  }
 
   // Poussière, fumée et flammes derrière ma voiture
-  const lMoi = parY[Math.round(rowDe(recul))];
-  const moiPx = lMoi ? lMoi.cx + me.x * lMoi.hw : L / 2;
-  const moiPy = lMoi ? lMoi.y : H - 40;
   const hors = Math.abs(me.x) > 1.02 && me.v > 8;
   if (hors && Math.random() < 0.8)
     fx.particule({
@@ -1159,6 +1091,30 @@ function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx
       taille: 6,
       couleur: "#8a7a62",
       grav: 20,
+    });
+  if (me.v > 20 && (me.dir !== 0 || me.glisse > 0) && Math.random() < 0.9)
+    for (let q = 0; q < 2; q++)
+      fx.particule({
+        x: moiPx + (Math.random() - 0.5) * 70,
+        y: moiPy - 6,
+        vx: (Math.random() - 0.5) * 140 - me.dir * 60,
+        vy: -40 - Math.random() * 90,
+        vie: 0.45,
+        taille: 2,
+        couleur: Math.random() < 0.5 ? "#ffb347" : "#ff7a2a",
+        grav: 260,
+        lueur: true,
+      });
+  if (me.v > 20 && me.dir !== 0 && Math.random() < 0.5)
+    fx.particule({
+      x: moiPx + (Math.random() - 0.5) * 80,
+      y: moiPy - 2,
+      vx: (Math.random() - 0.5) * 50,
+      vy: -10 - Math.random() * 20,
+      vie: 0.7,
+      taille: 9,
+      couleur: "#c9c9d8",
+      grav: -10,
     });
   if (me.glisse > 0 && Math.random() < 0.7)
     fx.particule({
