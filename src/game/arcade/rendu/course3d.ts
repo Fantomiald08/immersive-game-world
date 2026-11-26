@@ -16,11 +16,11 @@ import { halo, hash, r, texte } from "./pixel";
  * portiques holographiques, écrans à balayage, et voiture 3D éclairée. La physique reste celle du jeu.
  */
 
-export const DEMI_LARGEUR = 8; // m
+export const DEMI_LARGEUR = 11; // m (route élargie)
 const PAS = 3; // m, pas de la polyligne précalculée
 const DECALAGE = 240; // m de piste avant z = 0
 const KT = 0.014; // rad par unité de courbure et par mètre
-const FOCALE = 440;
+const FOCALE = 360; // champ de vision plus large
 const CX = 400;
 const CY = 236;
 const NEAR = 0.6;
@@ -468,7 +468,7 @@ export function dessinerScene(
   for (let k = 0; k <= n; k++) pts.push(pt(z0 + k * SEG));
 
   // Quadrillage néon au sol de l'arène (échelle et hauteur des ponts)
-  {
+  if (!o.fondIllustre) {
     const G = 36;
     const gx0 = Math.floor((cam.x - 300) / G) * G;
     const gy0 = Math.floor((cam.y - 300) / G) * G;
@@ -694,7 +694,7 @@ export function dessinerScene(
   }
 
   // Portiques lumineux au-dessus de la piste (tous les 160 m)
-  for (let g = Math.floor(camZ / 160) * 160; g < camZ + PORTEE_M; g += 160) {
+  for (let g = Math.floor(camZ / 110) * 110; !o.fondIllustre && g < camZ + PORTEE_M; g += 110) {
     const dz = g - camZ;
     if (dz < 2) continue;
     const p = pt(g);
