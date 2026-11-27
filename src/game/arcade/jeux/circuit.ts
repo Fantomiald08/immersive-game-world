@@ -8,36 +8,46 @@ export const TOURS = 3;
 
 /** [longueur du tronçon en m, courbure]. >0 = vers la droite. Jamais de longue ligne droite. */
 const BRUT: ReadonlyArray<readonly [number, number]> = [
-  [60, 0.4],
-  [90, -0.9],
-  // Boucle 1 : grand virage en spirale vers la droite qui se resserre
-  [120, 1.1],
-  [130, 1.5],
-  [110, 1.7],
-  // S rapide puis épingle à gauche
-  [90, -1.2],
-  [100, 1.0],
-  [70, -1.9],
-  [80, 0.8],
-  [70, -0.9],
-  // Boucle 2 : spirale vers la gauche
-  [110, -1.2],
-  [130, -1.5],
-  [110, -1.6],
-  // Chicane serrée
-  [60, 1.1],
-  [60, -1.1],
-  [60, 1.1],
-  [100, -0.7],
-  // Boucle 3 : la plus serrée, qui finit en épingle
-  [100, 1.3],
-  [120, 1.6],
-  [110, 1.8],
-  [80, 1.4],
-  [90, -1.3],
-  [70, 1.9],
-  [80, -1.0],
-  [90, 0.9],
+  [50, 0.3],
+  // Spirale 1 : virage qui se resserre vers la droite (montante)
+  [110, 1.2],
+  [110, 1.4],
+  [100, 1.6],
+  [100, 1.8],
+  // Zigzag 1 : six changements de direction serrés
+  [45, -1.6],
+  [45, 1.6],
+  [45, -1.6],
+  [45, 1.6],
+  [45, -1.6],
+  [45, 1.6],
+  // Transition
+  [60, -0.5],
+  // Spirale 2 : large virage vers la gauche (descendante)
+  [120, -1.3],
+  [120, -1.5],
+  [120, -1.7],
+  [120, -1.9],
+  // Chicane large
+  [70, 1.2],
+  [50, -1.2],
+  [70, 1.2],
+  [50, -1.2],
+  // Grande courbe lente
+  [120, 0.9],
+  [120, 0.7],
+  // Spirale 3 : la plus serrée, en haut de la boucle
+  [100, 1.9],
+  [100, 1.95],
+  [100, 2.0],
+  [100, 2.0],
+  // Zigzag final
+  [40, -1.8],
+  [40, 1.8],
+  [40, -1.8],
+  [40, 1.8],
+  // Liaison vers le départ
+  [50, -0.6],
 ];
 const SOMME = BRUT.reduce((t, [l]) => t + l, 0);
 /** Le dernier tronçon complète la boucle exactement. */

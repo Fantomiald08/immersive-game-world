@@ -184,7 +184,8 @@ function pas(base: EtatBase, entrees: Readonly<Record<string, number>>, dt: numb
     c.x += braque * 2.1 * rapide * (c.glisse > 0 ? 0.35 : 1) * dt;
     if (c.glisse > 0) c.x += c.derive * 0.9 * rapide * dt;
     // La force centrifuge pousse vers l'extérieur du virage.
-    c.x -= courbure(c.z) * rapide * rapide * 1.1 * dt;
+    // Force centrifuge : quasi nulle sans dérapage, pour que la voiture ne parte pas sur le côté toute seule
+    c.x -= courbure(c.z) * rapide * rapide * (c.glisse > 0 ? 1.1 : 0.08) * dt;
     c.x = borne(c.x, -1.6, 1.6);
 
     // Embranchement : muret central et limite de la voie intérieure (rebond, jamais de blocage).
@@ -380,25 +381,20 @@ function spriteVoiturePret(): HTMLImageElement | null {
 /** Position de la voiture du joueur dans l'illustration (coordonnées de l'image 1024×572). */
 const VOITURE_IMG = { x: 700, y: 430 };
 
-/**
- * Dessine l'illustration en plein cadre (cover), avec un léger décalage selon la position latérale
- * et la progression sur le circuit (effet de conduite). Renvoie la position à l'écran de la voiture peinte.
- */
+/** Dessine l'illustration en plein cadre (cover) ; le décalage ne dépend que du braquage. */
 function dessinerFondIllustre(
   ctx: CanvasRenderingContext2D,
-  me: { x: number; z: number },
+  me: { dir: number },
 ): { moiPx: number; moiPy: number } | null {
   const img = fondPret();
   if (!img) return null;
-  const ratio = Math.max(L / img.naturalWidth, H / img.naturalHeight) * 1.08;
+  const ratio = Math.max(L / img.naturalWidth, H / img.naturalHeight) * 1.06;
   const w = img.naturalWidth * ratio;
   const h = img.naturalHeight * ratio;
   const maxX = (w - L) / 2;
-  const maxY = (h - H) / 2;
-  const decX = Math.max(-maxX, Math.min(maxX, -me.x * 16 + Math.sin(me.z / 90) * 10));
-  const decY = Math.max(-maxY, Math.min(maxY, Math.sin(me.z / 140) * 4));
+  const decX = Math.max(-maxX, Math.min(maxX, -me.dir * 14));
   const x0 = (L - w) / 2 + decX;
-  const y0 = (H - h) / 2 + decY;
+  const y0 = (H - h) / 2;
   ctx.drawImage(img, x0, y0, w, h);
   return { moiPx: x0 + VOITURE_IMG.x * ratio, moiPy: y0 + VOITURE_IMG.y * ratio };
 }
@@ -1055,8 +1051,8 @@ function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx
   sol.addColorStop(0.25, "#0a0a18");
   sol.addColorStop(1, "#04040a");
   if (!illustre) {
-  ctx.fillStyle = sol;
-  ctx.fillRect(-120, HORIZON, L + 240, H + 200 - HORIZON);
+    ctx.fillStyle = sol;
+    ctx.fillRect(-120, HORIZON, L + 240, H + 200 - HORIZON);
   }
 
   const { moiPx, moiPy } = fondPos ?? dessinerScene(ctx, cam, {
