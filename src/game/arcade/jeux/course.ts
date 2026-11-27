@@ -381,22 +381,101 @@ function spriteVoiturePret(): HTMLImageElement | null {
 /** Position de la voiture du joueur dans l'illustration (coordonnées de l'image 1024×572). */
 const VOITURE_IMG = { x: 700, y: 430 };
 
-/** Dessine l'illustration en plein cadre (cover) ; le décalage ne dépend que du braquage. */
+/** Dessine l'illustration en entier (largeur complète), puis ses détails animés (néons, plots, écrans, feux). */
 function dessinerFondIllustre(
   ctx: CanvasRenderingContext2D,
-  me: { dir: number },
+  me: { dir: number; v: number },
+  t: number,
 ): { moiPx: number; moiPy: number } | null {
   const img = fondPret();
   if (!img) return null;
-  const ratio = Math.max(L / img.naturalWidth, H / img.naturalHeight) * 1.06;
+  const vit = Math.max(0, Math.min(1, me.v / 40));
+  // Vue plus large : toute la largeur de l'image, léger zoom selon la vitesse
+  const ratio = (L / img.naturalWidth) * (1 + vit * 0.03);
   const w = img.naturalWidth * ratio;
   const h = img.naturalHeight * ratio;
-  const maxX = (w - L) / 2;
-  const decX = Math.max(-maxX, Math.min(maxX, -me.dir * 14));
-  const x0 = (L - w) / 2 + decX;
+  const x0 = (L - w) / 2;
   const y0 = (H - h) / 2;
+  ctx.fillStyle = "#05050c";
+  ctx.fillRect(0, 0, L, H);
   ctx.drawImage(img, x0, y0, w, h);
+  dessinerDetailsFond(ctx, x0, y0, ratio, t, vit, me.dir);
   return { moiPx: x0 + VOITURE_IMG.x * ratio, moiPy: y0 + VOITURE_IMG.y * ratio };
+}
+
+/** Détails animés posés par-dessus l'illustration, en coordonnées de l'image. */
+function dessinerDetailsFond(
+  ctx: CanvasRenderingContext2D,
+  x0: number,
+  y0: number,
+  ratio: number,
+  t: number,
+  vit: number,
+  braque: number,
+): void {
+  const X = (ix: number) => x0 + ix * ratio;
+  const Y = (iy: number) => y0 + iy * ratio;
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  // Plots de boost : pulsation cyan et chevrons qui défilent
+  for (const [bx, by, bw, bh] of [
+    [290, 422, 105, 26],
+    [418, 398, 92, 22],
+  ] as const) {
+    const pulse = 0.35 + 0.25 * Math.sin(t * 6 + bx);
+    ctx.fillStyle = `rgba(25,230,255,${pulse})`;
+    ctx.fillRect(X(bx), Y(by), bw * ratio, bh * ratio);
+    for (let k = 0; k < 3; k++) {
+      const u = (k / 3 + t * 0.9) % 1;
+      ctx.fillStyle = `rgba(255,255,255,${0.7 * (1 - Math.abs(u - 0.5) * 2)})`;
+      ctx.fillRect(X(bx + u * bw), Y(by + bh * 0.5) - 2, 6, 4);
+    }
+  }
+  // Rubans néon : étincelles qui glissent le long du ruban inférieur gauche
+  for (let k = 0; k < 14; k++) {
+    const u = (k / 14 + t * 0.12) % 1;
+    const ix = u * 620;
+    const iy = 430 - u * 110 + Math.sin(u * 9) * 6;
+    ctx.fillStyle = k % 2 ? "rgba(255,63,180,0.9)" : "rgba(180,255,255,0.9)";
+    ctx.fillRect(X(ix), Y(iy), 3, 3);
+  }
+  // Écrans géants : scintillement doux
+  for (const [sx, sy, sw, sh, col] of [
+    [12, 10, 175, 150, "rgba(255,63,180,"],
+    [205, 30, 120, 230, "rgba(25,230,255,"],
+    [640, 10, 150, 100, "rgba(255,63,180,"],
+  ] as const) {
+    ctx.fillStyle = `${col}${0.06 + 0.04 * Math.sin(t * 3 + sx)})`;
+    ctx.fillRect(X(sx), Y(sy), sw * ratio, sh * ratio);
+  }
+  // Feux arrière et échappement de la voiture peinte
+  const feu = 0.5 + 0.5 * Math.sin(t * 9);
+  ctx.fillStyle = `rgba(255,40,40,${0.25 + 0.2 * feu})`;
+  ctx.beginPath();
+  ctx.arc(X(765), Y(425), 22 * ratio, 0, Math.PI * 2);
+  ctx.arc(X(830), Y(425), 22 * ratio, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = `rgba(25,200,255,${0.3 + 0.25 * Math.sin(t * 14)})`;
+  ctx.beginPath();
+  ctx.arc(X(846), Y(462), 14 * ratio, 0, Math.PI * 2);
+  ctx.fill();
+  // Lignes de vitesse depuis le centre quand on roule vite
+  if (vit > 0.2) {
+    ctx.lineWidth = 1.5;
+    for (let k = 0; k < 16; k++) {
+      const a = (k / 16) * Math.PI * 2 + braque * 0.05;
+      const r1 = 240 + ((k * 37 + t * 400 * vit) % 180);
+      const r2 = r1 + 40 + vit * 80;
+      const cx = L / 2;
+      const cy = H * 0.55;
+      ctx.strokeStyle = `rgba(200,240,255,${0.25 * vit})`;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1 * 0.6);
+      ctx.lineTo(cx + Math.cos(a) * r2, cy + Math.sin(a) * r2 * 0.6);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
 }
 
 /** Ciel nocturne, skyline urbaine, enceinte d'arène à gradins et projecteurs (couche en cache). */
@@ -1016,7 +1095,7 @@ function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx
   ctx.scale(1.1, 1.1);
   ctx.translate(-L / 2, -H * 0.72);
   const illustre = fondPret() !== null;
-  const fondPos = illustre ? dessinerFondIllustre(ctx, me) : null;
+  const fondPos = illustre ? dessinerFondIllustre(ctx, me, fx.horloge) : null;
   if (!illustre) r(ctx, -120, -120, L + 240, HORIZON + 122, "#020208");
 
   // Voûte de l'arène qui défile avec le cap de la caméra
