@@ -28,6 +28,7 @@ import {
   supprimerCours,
   supprimerQuiz,
   TAILLE_MAX,
+  TAILLE_MAX_MO,
   useReseau,
   type QuizReseau,
 } from "@/game/reseau";
@@ -653,7 +654,7 @@ export function FormDepot({
 
   const choisirFichier = (f: File | null) => {
     if (f && f.size > TAILLE_MAX) {
-      setErreur("Ce fichier dépasse 2 Mo. Compresse-le ou colle son texte ci-dessous.");
+      setErreur(`Ce fichier dépasse ${TAILLE_MAX_MO} Mo. Compresse-le ou colle son texte ci-dessous.`);
       setFichier(null);
       return;
     }
@@ -741,7 +742,7 @@ export function FormDepot({
         />
       </label>
       <label className="block">
-        Fichier (PDF, Word, PowerPoint, Excel, image, ZIP… 2 Mo max)
+        Fichier (PDF, Word, PowerPoint, Excel, image, ZIP… {TAILLE_MAX_MO} Mo max)
         <input
           className={champ}
           type="file"
