@@ -8,12 +8,16 @@ import {
   type Organisation,
 } from "./organisation";
 import type { CoursReseau, QuizReseau, Reseau } from "./reseau";
+import type { FicheRevision } from "./fiche";
 
 export type CoursVue = CoursReseau & {
   cle: string;
   categorieNom: string;
   masque: boolean;
   quiz: QuizReseau[];
+  /** Fiche de révision la plus récente, écrite par l'auteur du cours. */
+  fiche: FicheRevision | null;
+  fichedate?: string;
 };
 export type QuizJouable = { quiz: QuizReseau; cours: CoursVue };
 export type Vue = {
@@ -42,6 +46,7 @@ export function construireVue(r: Reseau, joueurId?: string): Vue {
       categorieNom: nomDe.get(cle) ?? cle,
       masque: organisation.masques.includes(c.id),
       quiz: [],
+      fiche: null,
     };
   });
   const parId = new Map(tous.map((c) => [c.id, c]));
@@ -60,6 +65,14 @@ export function construireVue(r: Reseau, joueurId?: string): Vue {
       quiz: q,
       cours,
     });
+  }
+  for (const f of r.fiches) {
+    const cours = parId.get(f.coursId);
+    if (!cours || f.auteurId !== cours.auteurId) continue; // une fiche posée par un autre n'est pas affichée
+    if (!cours.fiche || f.date > (cours.fichedate ?? "")) {
+      cours.fiche = f.fiche;
+      cours.fichedate = f.date;
+    }
   }
   return {
     organisation,

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { auteurApprouve } from "./admins";
 import { lireOrganisation, type Organisation } from "./organisation";
+import { TYPE_FICHE, lireFiche, type FicheRevision } from "./fiche";
 import {
   nettoyerQuestions,
   type QuestionQuiz,
@@ -58,12 +59,21 @@ export type QuizReseau = {
   source: "ia" | "manuel";
   questions: QuestionQuiz[];
 };
+export type FicheReseau = {
+  id: string;
+  coursId: string;
+  auteurId: string;
+  auteur: string;
+  date: string;
+  fiche: FicheRevision;
+};
 export type Reseau = {
   cours: CoursReseau[];
   categories: CategorieReseau[];
   annonces: AnnonceReseau[];
   organisation: Organisation | null;
   quiz: QuizReseau[];
+  fiches: FicheReseau[];
 };
 
 type Charge = { v: 3; description: string; contenu: string; fichier?: FichierMeta };
@@ -99,7 +109,8 @@ export function assembler(lignes: readonly Ligne[], pseudos: ReadonlyMap<string,
   const cours: CoursReseau[] = [],
     categories: CategorieReseau[] = [],
     annonces: AnnonceReseau[] = [],
-    quiz: QuizReseau[] = [];
+    quiz: QuizReseau[] = [],
+    fiches: FicheReseau[] = [];
   let organisation: Organisation | null = null,
     dateOrg = "";
   for (const r of lignes) {
@@ -129,6 +140,11 @@ export function assembler(lignes: readonly Ligne[], pseudos: ReadonlyMap<string,
       }
       continue;
     }
+    if (r.type === TYPE_FICHE) {
+      const fiche = lireFiche(r.text);
+      if (fiche) fiches.push({ ...base, coursId: r.title, fiche });
+      continue;
+    }
     if (r.type === TYPE_QUIZ) {
       try {
         const j = JSON.parse(r.text) as { source?: string; questions?: unknown };
@@ -155,7 +171,7 @@ export function assembler(lignes: readonly Ligne[], pseudos: ReadonlyMap<string,
       ...(c.fichier ? { fichier: c.fichier } : {}),
     });
   }
-  return { cours, categories, annonces, organisation, quiz };
+  return { cours, categories, annonces, organisation, quiz, fiches };
 }
 
 export async function chargerReseau(): Promise<Reseau> {

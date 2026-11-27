@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { assembler, TYPE_ANNONCE, TYPE_ORG, TYPE_QUIZ } from "./reseau";
+import { TYPE_FICHE } from "./fiche";
 import { construireVue } from "./reseauVue";
 import {
   ajouterCategorie,
@@ -173,5 +174,43 @@ describe("vue du réseau (avec les droits admin)", () => {
       pseudos,
     );
     expect(r.quiz).toHaveLength(0);
+  });
+});
+
+describe("fiches de révision", () => {
+  const fiche = (titre: string) => ({ titre, resume: [`Résumé de ${titre}.`], notions: [], pieges: [], aRetenir: [] });
+  const ficheLigne = (coursId: string, titre: string, auteur: string) =>
+    ligne(TYPE_FICHE, coursId, JSON.stringify(fiche(titre)), auteur);
+
+  it("une fiche n'apparaît jamais comme un cours du réseau", () => {
+    const r = assembler([cours("c1", "Réseaux", "eleve"), ficheLigne("c1", "DHCP", "eleve")], pseudos);
+    expect(r.cours.map((c) => c.id)).toEqual(["c1"]);
+    expect(r.fiches).toHaveLength(1);
+  });
+
+  it("la fiche écrite par l'auteur du cours est affichée avec le cours", () => {
+    const v = construireVue(assembler([cours("c1", "Réseaux", "eleve"), ficheLigne("c1", "DHCP", "eleve")], pseudos));
+    expect(v.cours[0]?.fiche?.titre).toBe("DHCP");
+  });
+
+  it("une fiche posée par quelqu'un d'autre sur le cours d'un élève est ignorée", () => {
+    const v = construireVue(assembler([cours("c1", "Réseaux", "eleve"), ficheLigne("c1", "Fausse", "autre")], pseudos));
+    expect(v.cours[0]?.fiche).toBeNull();
+  });
+
+  it("la fiche la plus récente de l'auteur remplace les anciennes", () => {
+    const v = construireVue(
+      assembler(
+        [cours("c1", "Réseaux", "eleve"), ficheLigne("c1", "Ancienne", "eleve"), ficheLigne("c1", "Nouvelle", "eleve")],
+        pseudos,
+      ),
+    );
+    expect(v.cours[0]?.fiche?.titre).toBe("Nouvelle");
+  });
+
+  it("une fiche illisible est ignorée sans casser le réseau", () => {
+    const r = assembler([cours("c1", "Réseaux", "eleve"), ligne(TYPE_FICHE, "c1", "{cassé", "eleve")], pseudos);
+    expect(r.fiches).toEqual([]);
+    expect(r.cours).toHaveLength(1);
   });
 });
