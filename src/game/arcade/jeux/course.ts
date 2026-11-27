@@ -398,9 +398,29 @@ function dessinerFondIllustre(
   const y0 = (H - h) / 2;
   ctx.fillStyle = "#05050c";
   ctx.fillRect(0, 0, L, H);
+  ctx.imageSmoothingEnabled = false;
   ctx.drawImage(img, x0, y0, w, h);
+  ctx.imageSmoothingEnabled = true;
   dessinerDetailsFond(ctx, x0, y0, ratio, t, vit, me.dir);
   return { moiPx: x0 + VOITURE_IMG.x * ratio, moiPy: y0 + VOITURE_IMG.y * ratio };
+}
+
+/** Centre du ruban néon inférieur gauche, mesuré sur l'image (coordonnées image). */
+const RUBAN: ReadonlyArray<readonly [number, number]> = [
+  [0, 407], [80, 404], [160, 405], [240, 392], [320, 396], [400, 386], [480, 374], [560, 343],
+];
+/** Point du ruban pour u ∈ [0, 1[ (interpolé linéairement entre les points mesurés). */
+function pointRuban(u: number): [number, number] {
+  const x = u * RUBAN[RUBAN.length - 1]![0];
+  for (let k = 0; k < RUBAN.length - 1; k++) {
+    const [xa, ya] = RUBAN[k]!;
+    const [xb, yb] = RUBAN[k + 1]!;
+    if (x <= xb) {
+      const f = (x - xa) / (xb - xa);
+      return [x, ya + (yb - ya) * f];
+    }
+  }
+  return [x, RUBAN[RUBAN.length - 1]![1]];
 }
 
 /** Détails animés posés par-dessus l'illustration, en coordonnées de l'image. */
@@ -419,8 +439,8 @@ function dessinerDetailsFond(
   ctx.globalCompositeOperation = "lighter";
   // Plots de boost : pulsation cyan et chevrons qui défilent
   for (const [bx, by, bw, bh] of [
-    [290, 422, 105, 26],
-    [418, 398, 92, 22],
+    [280, 415, 130, 38],
+    [418, 391, 88, 44],
   ] as const) {
     const pulse = 0.35 + 0.25 * Math.sin(t * 6 + bx);
     ctx.fillStyle = `rgba(25,230,255,${pulse})`;
@@ -431,19 +451,18 @@ function dessinerDetailsFond(
       ctx.fillRect(X(bx + u * bw), Y(by + bh * 0.5) - 2, 6, 4);
     }
   }
-  // Rubans néon : étincelles qui glissent le long du ruban inférieur gauche
+  // Rubans néon : étincelles qui glissent le long du centre mesuré du ruban inférieur gauche
   for (let k = 0; k < 14; k++) {
     const u = (k / 14 + t * 0.12) % 1;
-    const ix = u * 620;
-    const iy = 430 - u * 110 + Math.sin(u * 9) * 6;
+    const [ix, iy] = pointRuban(u);
     ctx.fillStyle = k % 2 ? "rgba(255,63,180,0.9)" : "rgba(180,255,255,0.9)";
     ctx.fillRect(X(ix), Y(iy), 3, 3);
   }
   // Écrans géants : scintillement doux
   for (const [sx, sy, sw, sh, col] of [
-    [12, 10, 175, 150, "rgba(255,63,180,"],
-    [205, 30, 120, 230, "rgba(25,230,255,"],
-    [640, 10, 150, 100, "rgba(255,63,180,"],
+    [192, 29, 142, 249, "rgba(25,230,255,"],
+    [811, 0, 120, 71, "rgba(255,63,180,"],
+    [0, 125, 146, 62, "rgba(25,230,255,"],
   ] as const) {
     ctx.fillStyle = `${col}${0.06 + 0.04 * Math.sin(t * 3 + sx)})`;
     ctx.fillRect(X(sx), Y(sy), sw * ratio, sh * ratio);
@@ -452,12 +471,12 @@ function dessinerDetailsFond(
   const feu = 0.5 + 0.5 * Math.sin(t * 9);
   ctx.fillStyle = `rgba(255,40,40,${0.25 + 0.2 * feu})`;
   ctx.beginPath();
-  ctx.arc(X(765), Y(425), 22 * ratio, 0, Math.PI * 2);
-  ctx.arc(X(830), Y(425), 22 * ratio, 0, Math.PI * 2);
+  ctx.arc(X(759), Y(428), 22 * ratio, 0, Math.PI * 2);
+  ctx.arc(X(834), Y(416), 16 * ratio, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = `rgba(25,200,255,${0.3 + 0.25 * Math.sin(t * 14)})`;
   ctx.beginPath();
-  ctx.arc(X(846), Y(462), 14 * ratio, 0, Math.PI * 2);
+  ctx.arc(X(848), Y(457), 14 * ratio, 0, Math.PI * 2);
   ctx.fill();
   // Lignes de vitesse depuis le centre quand on roule vite
   if (vit > 0.2) {
@@ -1058,7 +1077,17 @@ function evenements(s: EtatCourse, moi: string, fx: Effets): void {
 
 const CAM = { horizon: 0, recul: 0, roulis: 0 };
 
+/** Facteur d'agrandissement du cadre : la logique reste en 800×480, l'affichage est plus net et plus grand. */
+const ECHELLE = 1.6;
+
 function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx: Effets): void {
+  ctx.save();
+  ctx.scale(ECHELLE, ECHELLE);
+  dessinerCourse(ctx, base, moi, fx);
+  ctx.restore();
+}
+
+function dessinerCourse(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx: Effets): void {
   const s = base as EtatCourse;
   const idxMoi = Math.max(
     0,
@@ -1318,8 +1347,8 @@ export const course: Jeu = {
     "3 tours d'un circuit néon à embranchements, vue derrière la voiture. Le meilleur temps gagne (3 min 30 max).",
   aide: ["Z / ↑ : accélérer", "S / ↓ : freiner", "Q D / ← → : tourner", "Espace : turbo"],
   boutons: { a: "Turbo", haut: "Gaz", bas: "Frein" },
-  largeur: L,
-  hauteur: H,
+  largeur: L * ECHELLE,
+  hauteur: H * ECHELLE,
   creer,
   pas,
   termine,
