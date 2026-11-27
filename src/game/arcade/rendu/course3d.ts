@@ -16,7 +16,7 @@ import { halo, hash, r, texte } from "./pixel";
  * portiques holographiques, écrans à balayage, et voiture 3D éclairée. La physique reste celle du jeu.
  */
 
-export const DEMI_LARGEUR = 11; // m (route élargie)
+export const DEMI_LARGEUR = 14; // m (route élargie)
 const PAS = 3; // m, pas de la polyligne précalculée
 const DECALAGE = 240; // m de piste avant z = 0
 const KT = 0.014; // rad par unité de courbure et par mètre
@@ -694,7 +694,7 @@ export function dessinerScene(
   }
 
   // Portiques lumineux au-dessus de la piste (tous les 160 m)
-  for (let g = Math.floor(camZ / 110) * 110; !o.fondIllustre && g < camZ + PORTEE_M; g += 110) {
+  for (let g = Math.floor(camZ / 110) * 110; g < camZ + PORTEE_M; g += 110) {
     const dz = g - camZ;
     if (dz < 2) continue;
     const p = pt(g);
