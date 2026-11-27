@@ -1,63 +1,87 @@
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { construireVue } from "@/game/reseauVue";
-import {
-  formaterDate,
-  publierAnnonce,
-  publierOrganisation,
-  supprimerAnnonce,
-  supprimerCours,
-  type CoursReseau,
-} from "@/game/reseau";
-import { masquerCours } from "@/game/organisation";
+import { formaterDate } from "@/game/reseau";
 import { SEUIL_LENT_MS, type EtatService, type NiveauVerification } from "@/game/serveur";
 import type { DonneesServeur } from "@/game/serveur-data";
+import type { Present } from "@/game/multijoueur";
 
-export type Section = "accueil" | "local" | "tous" | "roles" | "services" | "evenements" | "performances" | "outils" | "aide";
+export type Section =
+  | "accueil"
+  | "local"
+  | "tous"
+  | "cours"
+  | "quiz"
+  | "fiches"
+  | "annonces"
+  | "categories"
+  | "eleves"
+  | "services"
+  | "evenements"
+  | "performances"
+  | "aide";
 
-const COULEUR_ETAT: Record<EtatService, string> = {
-  "En cours": "#107c10",
-  Lent: "#ffb900",
-  Arrêté: "#d13438",
-};
-const COULEUR_NIVEAU: Record<NiveauVerification, string> = {
+export const COULEUR_ETAT: Record<EtatService, string> = { "En cours": "#107c10", Lent: "#9d5d00", Arrêté: "#c42b1c" };
+export const COULEUR_NIVEAU: Record<NiveauVerification, string> = {
   Réussi: "#107c10",
-  Avertissement: "#ffb900",
-  Erreur: "#d13438",
+  Avertissement: "#9d5d00",
+  Erreur: "#c42b1c",
 };
 
 export function Pastille({ couleur }: { couleur: string }) {
   return <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: couleur }} aria-hidden />;
 }
 
-/** En-tête de section, comme dans le Gestionnaire de serveur. */
 export function EnTete({ titre, sousTitre, action }: { titre: string; sousTitre: string; action?: React.ReactNode }) {
   return (
-    <div className="mb-4 flex items-start justify-between gap-3 border-b border-[#d0d7e2] pb-3">
+    <div className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-[#d6d6d6] pb-3">
       <div>
-        <h2 className="text-xl font-semibold text-[#1f3a5f]">{titre}</h2>
-        <p className="text-sm text-[#4a5568]">{sousTitre}</p>
+        <h2 className="text-[22px] font-light text-[#1e1e1e]">{titre}</h2>
+        <p className="text-[13px] text-[#505050]">{sousTitre}</p>
       </div>
       {action}
     </div>
   );
 }
 
-const Bouton = (props: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+/** Tuile du tableau de bord : en-tête en majuscules bleu, lien optionnel vers la section. */
+export function Tuile({
+  titre,
+  onOuvrir,
+  children,
+}: {
+  titre: string;
+  onOuvrir?: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="flex min-w-0 flex-col border border-[#d6d6d6] bg-white">
+      <header className="flex items-center justify-between border-b border-[#e5e5e5] px-4 py-2">
+        <h3 className="text-[12px] font-semibold tracking-wide text-[#0067c0]">{titre}</h3>
+        {onOuvrir && (
+          <button type="button" onClick={onOuvrir} className="text-[12px] text-[#0067c0] hover:underline">
+            Ouvrir
+          </button>
+        )}
+      </header>
+      <div className="flex-1 p-4 text-[13px]">{children}</div>
+    </section>
+  );
+}
+
+export const Bouton = (props: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
   <button
     type="button"
     {...props}
-    className={`rounded-sm border border-[#8a96a8] bg-white px-3 py-1 text-sm text-[#1f2937] hover:bg-[#e8f1fb] disabled:opacity-50 ${props.className ?? ""}`}
+    className={`border border-[#8a8886] bg-[#fdfdfd] px-3 py-1 text-[13px] text-[#1e1e1e] hover:bg-[#f0f6fc] disabled:opacity-50 ${props.className ?? ""}`}
   />
 );
 
-const Tableau = ({ entetes, children }: { entetes: string[]; children: React.ReactNode }) => (
-  <div className="overflow-x-auto rounded-sm border border-[#d0d7e2]">
-    <table className="w-full border-collapse text-left text-sm">
-      <thead className="bg-[#eef2f7] text-[#1f3a5f]">
+export const Tableau = ({ entetes, children }: { entetes: string[]; children: React.ReactNode }) => (
+  <div className="overflow-x-auto border border-[#d6d6d6] bg-white">
+    <table className="w-full border-collapse text-left text-[13px]">
+      <thead className="bg-[#f5f5f5] text-[#1e1e1e]">
         <tr>
           {entetes.map((e) => (
-            <th key={e} className="border-b border-[#d0d7e2] px-3 py-2 font-semibold">
+            <th key={e} className="border-b border-[#d6d6d6] px-3 py-1.5 font-semibold">
               {e}
             </th>
           ))}
@@ -67,162 +91,226 @@ const Tableau = ({ entetes, children }: { entetes: string[]; children: React.Rea
     </table>
   </div>
 );
-
-const Ligne = ({ children }: { children: React.ReactNode }) => (
-  <tr className="border-b border-[#eef2f7] align-top hover:bg-[#f5f9ff]">{children}</tr>
+export const Ligne = ({ children }: { children: React.ReactNode }) => (
+  <tr className="border-b border-[#ededed] align-top hover:bg-[#f0f6fc]">{children}</tr>
 );
-const Cellule = ({ children }: { children: React.ReactNode }) => <td className="px-3 py-2">{children}</td>;
+export const Cellule = ({ children }: { children: React.ReactNode }) => <td className="px-3 py-1.5">{children}</td>;
 
-export function Accueil({ data, aller }: { data: DonneesServeur; aller: (s: Section) => void }) {
-  const r = data.reseau;
-  const tuiles: Array<{ titre: string; texte: string; vers: Section }> = [
-    { titre: "Configurer ce serveur local", texte: "Nom, mode d'administration, connexion et meilleures pratiques.", vers: "local" },
-    { titre: "Ajouter des rôles et fonctionnalités", texte: "Voir les rôles du jeu et le nombre de cours, quiz et fiches.", vers: "roles" },
-    { titre: "Vérifier les services", texte: "Base de données, temps réel, génération IA et comptes.", vers: "services" },
-    { titre: "Outils d'administration", texte: "Publier une annonce, masquer ou supprimer un cours.", vers: "outils" },
-  ];
+/** Bouton déroulant (menu de tâches, comme « TÂCHES » dans le Gestionnaire de serveur). */
+export function MenuDeroulant({
+  libelle,
+  items,
+}: {
+  libelle: string;
+  items: Array<{ libelle: string; action: () => void }>;
+}) {
+  const [ouvert, setOuvert] = useState(false);
   return (
-    <div className="space-y-5">
-      <EnTete titre="Tableau de bord" sousTitre="Bienvenue dans le Gestionnaire de serveur d'ISITECH WORLD." />
-      <div className="grid gap-3 sm:grid-cols-2">
-        {tuiles.map((t) => (
-          <button
-            key={t.titre}
-            type="button"
-            onClick={() => aller(t.vers)}
-            className="rounded-sm border border-[#d0d7e2] bg-[#f5f9ff] p-4 text-left hover:border-[#0067b8] hover:bg-[#e8f1fb]"
-          >
-            <div className="font-semibold text-[#0067b8]">{t.titre}</div>
-            <div className="mt-1 text-sm text-[#4a5568]">{t.texte}</div>
-          </button>
-        ))}
-      </div>
-      <div>
-        <h3 className="mb-2 font-semibold text-[#1f3a5f]">Résumé du jeu</h3>
-        <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-          {[
-            ["Cours", r.cours.length],
-            ["Quiz", r.quiz.length],
-            ["Fiches", r.fiches.length],
-            ["Annonces", r.annonces.length],
-          ].map(([nom, n]) => (
-            <div key={nom} className="rounded-sm border border-[#d0d7e2] p-3">
-              <div className="text-[#4a5568]">{nom}</div>
-              <div className="text-2xl font-semibold text-[#1f3a5f]">{n}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div>
-        <h3 className="mb-2 font-semibold text-[#1f3a5f]">Meilleures pratiques</h3>
-        <ul className="space-y-1 text-sm">
-          {data.verifications.map((v) => (
-            <li key={v.titre} className="flex items-start gap-2">
-              <Pastille couleur={COULEUR_NIVEAU[v.niveau]} />
-              <span>
-                <strong>{v.titre}</strong> : {v.message}
-              </span>
+    <div className="relative inline-block">
+      <Bouton aria-expanded={ouvert} onClick={() => setOuvert((o) => !o)}>
+        {libelle} ▾
+      </Bouton>
+      {ouvert && (
+        <ul role="menu" className="absolute right-0 z-10 mt-1 min-w-[240px] border border-[#8a8886] bg-white py-1 shadow-md">
+          {items.map((i) => (
+            <li key={i.libelle} role="none">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOuvert(false);
+                  i.action();
+                }}
+                className="block w-full px-4 py-1.5 text-left text-[13px] hover:bg-[#f0f6fc]"
+              >
+                {i.libelle}
+              </button>
             </li>
           ))}
         </ul>
-      </div>
+      )}
     </div>
   );
 }
 
-export function ServeurLocal({ data, connectes }: { data: DonneesServeur; connectes: number }) {
+const compte = (d: DonneesServeur) => ({
+  actifs: d.services.filter((s) => s.etat === "En cours").length,
+  lents: d.services.filter((s) => s.etat === "Lent").length,
+  arretes: d.services.filter((s) => s.etat === "Arrêté").length,
+  avert: d.verifications.filter((v) => v.niveau === "Avertissement").length,
+  erreurs: d.verifications.filter((v) => v.niveau === "Erreur").length,
+  reussis: d.verifications.filter((v) => v.niveau === "Réussi").length,
+});
+
+export function Accueil({ data, presents, aller }: { data: DonneesServeur; presents: Present[]; aller: (s: Section) => void }) {
+  const c = compte(data);
+  const r = data.reseau;
+  const etapes: Array<{ libelle: string; vers: Section }> = [
+    { libelle: "Configurer ce serveur local", vers: "local" },
+    { libelle: "Ajouter des rôles et fonctionnalités", vers: "cours" },
+    { libelle: "Afficher tous les serveurs", vers: "tous" },
+  ];
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      <section className="border border-[#d6d6d6] bg-white md:col-span-2">
+        <div className="border-b border-[#e5e5e5] px-4 py-3">
+          <h2 className="text-[18px] font-light text-[#1e1e1e]">Bienvenue dans le Gestionnaire de serveur</h2>
+          <p className="text-[13px] text-[#505050]">Ce serveur héberge les cours, quiz, fiches et annonces d'ISITECH WORLD.</p>
+        </div>
+        <ol className="grid gap-px bg-[#e5e5e5] md:grid-cols-3">
+          {etapes.map((e, i) => (
+            <li key={e.libelle} className="bg-white">
+              <button type="button" onClick={() => aller(e.vers)} className="flex h-full w-full items-start gap-3 p-4 text-left hover:bg-[#f0f6fc]">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#0067c0] text-[13px] text-[#0067c0]">
+                  {i + 1}
+                </span>
+                <span className="text-[13px] text-[#0067c0]">{e.libelle}</span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      </section>
+      <Tuile titre="RÔLES ET FONCTIONNALITÉS" onOuvrir={() => aller("cours")}>
+        <dl className="grid grid-cols-2 gap-y-1">
+          <dt>Cours</dt>
+          <dd className="text-right font-semibold">{r.cours.length}</dd>
+          <dt>Quiz</dt>
+          <dd className="text-right font-semibold">{r.quiz.length}</dd>
+          <dt>Fiches de révision</dt>
+          <dd className="text-right font-semibold">{r.fiches.length}</dd>
+          <dt>Annonces</dt>
+          <dd className="text-right font-semibold">{r.annonces.length}</dd>
+        </dl>
+      </Tuile>
+      <Tuile titre="SERVICES" onOuvrir={() => aller("services")}>
+        <dl className="grid grid-cols-2 gap-y-1">
+          <dt className="flex items-center gap-2"><Pastille couleur={COULEUR_ETAT["En cours"]} />En cours</dt>
+          <dd className="text-right font-semibold">{c.actifs}</dd>
+          <dt className="flex items-center gap-2"><Pastille couleur={COULEUR_ETAT.Lent} />Lents</dt>
+          <dd className="text-right font-semibold">{c.lents}</dd>
+          <dt className="flex items-center gap-2"><Pastille couleur={COULEUR_ETAT["Arrêté"]} />Arrêtés</dt>
+          <dd className="text-right font-semibold">{c.arretes}</dd>
+        </dl>
+      </Tuile>
+      <Tuile titre="PERFORMANCES" onOuvrir={() => aller("performances")}>
+        <dl className="grid grid-cols-2 gap-y-1">
+          <dt>Élèves connectés</dt>
+          <dd className="text-right font-semibold">{presents.length}</dd>
+          <dt>Comptes</dt>
+          <dd className="text-right font-semibold">{data.mesures.nbProfils}</dd>
+          <dt>Réponse de la base</dt>
+          <dd className="text-right font-semibold">{data.mesures.latenceMs === null ? "—" : `${data.mesures.latenceMs} ms`}</dd>
+        </dl>
+      </Tuile>
+      <Tuile titre="MEILLEURES PRATIQUES" onOuvrir={() => aller("local")}>
+        <dl className="grid grid-cols-2 gap-y-1">
+          <dt className="flex items-center gap-2"><Pastille couleur={COULEUR_NIVEAU.Réussi} />Réussies</dt>
+          <dd className="text-right font-semibold">{c.reussis}</dd>
+          <dt className="flex items-center gap-2"><Pastille couleur={COULEUR_NIVEAU.Avertissement} />Avertissements</dt>
+          <dd className="text-right font-semibold">{c.avert}</dd>
+          <dt className="flex items-center gap-2"><Pastille couleur={COULEUR_NIVEAU.Erreur} />Erreurs</dt>
+          <dd className="text-right font-semibold">{c.erreurs}</dd>
+        </dl>
+      </Tuile>
+      <Tuile titre="ÉVÉNEMENTS" onOuvrir={() => aller("evenements")}>
+        <p>{data.evenements.length} événement(s) récent(s) dans le journal.</p>
+        <p className="mt-2 text-[#505050]">
+          Dernier : {data.evenements[0] ? `${data.evenements[0].message} (${formaterDate(data.evenements[0].date)})` : "aucun"}
+        </p>
+      </Tuile>
+    </div>
+  );
+}
+
+export function ServeurLocal({
+  data,
+  presents,
+  aller,
+  onActualiser,
+}: {
+  data: DonneesServeur;
+  presents: Present[];
+  aller: (s: Section) => void;
+  onActualiser: () => void;
+}) {
   const m = data.mesures;
   const proprietes: Array<[string, string]> = [
     ["Nom de l'ordinateur", "ISITECH-SRV22"],
+    ["Groupe", "ISITECH"],
     ["Mode d'administration", m.provisoire ? "Provisoire (pseudos)" : "Stable (identifiants de compte)"],
-    ["Élèves connectés", String(connectes)],
+    ["Gestion à distance", "Activée"],
+    ["Élèves connectés", String(presents.length)],
     ["Comptes enregistrés", String(m.nbProfils)],
     ["Temps réel", m.tempsReelOk ? "Ouvert" : "Fermé"],
     ["Génération IA", m.iaConfiguree ? "Configurée" : "Absente"],
     ["Réponse de la base", m.latenceMs === null ? "Aucune réponse" : `${m.latenceMs} ms`],
   ];
   return (
-    <div className="space-y-5">
-      <EnTete titre="Serveur local" sousTitre="Propriétés du serveur et analyse de sa configuration." />
-      <Tableau entetes={["Propriété", "Valeur"]}>
-        {proprietes.map(([p, v]) => (
-          <Ligne key={p}>
-            <Cellule>{p}</Cellule>
-            <Cellule>{v}</Cellule>
-          </Ligne>
-        ))}
-      </Tableau>
-      <div>
-        <h3 className="mb-2 font-semibold text-[#1f3a5f]">Analyseur des meilleures pratiques</h3>
-        <Tableau entetes={["Niveau", "Vérification", "Résultat"]}>
-          {data.verifications.map((v) => (
-            <Ligne key={v.titre}>
-              <Cellule>
-                <span className="flex items-center gap-2">
-                  <Pastille couleur={COULEUR_NIVEAU[v.niveau]} />
-                  {v.niveau}
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-[22px] font-light text-[#1e1e1e]">ISITECH-SRV22</h2>
+        <MenuDeroulant
+          libelle="TÂCHES"
+          items={[
+            { libelle: "Actualiser les données", action: onActualiser },
+            { libelle: "Publier une annonce", action: () => aller("annonces") },
+            { libelle: "Ouvrir le journal des événements", action: () => aller("evenements") },
+            { libelle: "Gérer les élèves", action: () => aller("eleves") },
+          ]}
+        />
+      </div>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <Tuile titre="PROPRIÉTÉS">
+          <dl className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-y-1.5">
+            {proprietes.map(([p, v]) => (
+              <div key={p} className="contents">
+                <dt className="text-[#505050]">{p}</dt>
+                <dd>{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </Tuile>
+        <Tuile titre="MEILLEURES PRATIQUES">
+          <ul className="space-y-2">
+            {data.verifications.map((v) => (
+              <li key={v.titre} className="flex items-start gap-2">
+                <Pastille couleur={COULEUR_NIVEAU[v.niveau]} />
+                <span>
+                  <strong className="font-semibold">{v.titre}</strong> : {v.message}
                 </span>
-              </Cellule>
-              <Cellule>{v.titre}</Cellule>
-              <Cellule>{v.message}</Cellule>
-            </Ligne>
-          ))}
-        </Tableau>
+              </li>
+            ))}
+          </ul>
+        </Tuile>
       </div>
-      <div>
-        <h3 className="mb-2 font-semibold text-[#1f3a5f]">Événements récents</h3>
+      <Tuile titre="ÉVÉNEMENTS RÉCENTS" onOuvrir={() => aller("evenements")}>
         <Evenements data={data} limite={8} />
-      </div>
+      </Tuile>
     </div>
   );
 }
 
-export function TousServeurs({ data }: { data: DonneesServeur }) {
-  const actifs = data.services.filter((s) => s.etat === "En cours").length;
-  const etat = data.services.some((s) => s.etat === "Arrêté")
-    ? "Arrêté"
-    : data.services.some((s) => s.etat === "Lent")
-      ? "Lent"
-      : "En cours";
+export function TousServeurs({ data, presents }: { data: DonneesServeur; presents: Present[] }) {
+  const c = compte(data);
+  const etat: EtatService = c.arretes > 0 ? "Arrêté" : c.lents > 0 ? "Lent" : "En cours";
   return (
     <div className="space-y-4">
-      <EnTete titre="Tous les serveurs" sousTitre="Serveurs gérés depuis ce gestionnaire." />
-      <Tableau entetes={["Nom", "État", "Services actifs", "Rôle principal"]}>
+      <EnTete titre="Tous les serveurs" sousTitre="Serveurs gérés par ce gestionnaire." />
+      <Tableau entetes={["Nom du serveur", "État de gestion", "Dernière mise à jour", "Services en cours", "Élèves connectés"]}>
         <Ligne>
-          <Cellule>ISITECH-SRV22 (serveur local)</Cellule>
+          <Cellule>ISITECH-SRV22</Cellule>
           <Cellule>
             <span className="flex items-center gap-2">
               <Pastille couleur={COULEUR_ETAT[etat]} />
-              {etat}
+              {etat === "En cours" ? "En ligne" : etat === "Lent" ? "Dégradé" : "Hors ligne"}
             </span>
           </Cellule>
+          <Cellule>{new Date(data.mesures.horodatage).toLocaleString("fr-FR")}</Cellule>
           <Cellule>
-            {actifs} / {data.services.length}
+            {c.actifs} / {data.services.length}
           </Cellule>
-          <Cellule>Cours, quiz, fiches et annonces</Cellule>
+          <Cellule>{presents.length}</Cellule>
         </Ligne>
-      </Tableau>
-      <p className="text-sm text-[#4a5568]">
-        Le jeu s'appuie sur une base de données hébergée et sur la génération IA. Ils apparaissent dans la section Services.
-      </p>
-    </div>
-  );
-}
-
-export function Roles({ data }: { data: DonneesServeur }) {
-  return (
-    <div className="space-y-4">
-      <EnTete titre="Rôles et fonctionnalités" sousTitre="Ce que le serveur héberge pour le jeu, avec le nombre d'éléments." />
-      <Tableau entetes={["Rôle", "Description", "Éléments"]}>
-        {data.roles.map((r) => (
-          <Ligne key={r.nom}>
-            <Cellule>
-              <strong>{r.nom}</strong>
-            </Cellule>
-            <Cellule>{r.description}</Cellule>
-            <Cellule>{r.nombre}</Cellule>
-          </Ligne>
-        ))}
       </Tableau>
     </div>
   );
@@ -240,7 +328,7 @@ export function Services({ data, onActualiser }: { data: DonneesServeur; onActua
         {data.services.map((s) => (
           <Ligne key={s.nom}>
             <Cellule>
-              <strong>{s.nom}</strong>
+              <strong className="font-semibold">{s.nom}</strong>
             </Cellule>
             <Cellule>{s.description}</Cellule>
             <Cellule>{s.demarrage}</Cellule>
@@ -275,7 +363,7 @@ export function Evenements({ data, limite }: { data: DonneesServeur; limite?: nu
               aria-label="Filtrer par source"
               value={source}
               onChange={(e) => setSource(e.target.value)}
-              className="rounded-sm border border-[#8a96a8] bg-white px-2 py-1 text-sm"
+              className="border border-[#8a8886] bg-white px-2 py-1 text-[13px]"
             >
               <option>Toutes</option>
               {sources.map((s) => (
@@ -286,7 +374,7 @@ export function Evenements({ data, limite }: { data: DonneesServeur; limite?: nu
         />
       )}
       {liste.length === 0 ? (
-        <p className="text-sm text-[#4a5568]">Aucun événement pour cette source.</p>
+        <p className="text-[#505050]">Aucun événement pour cette source.</p>
       ) : (
         <Tableau entetes={["Date", "Niveau", "Source", "Message"]}>
           {liste.map((e) => (
@@ -294,7 +382,7 @@ export function Evenements({ data, limite }: { data: DonneesServeur; limite?: nu
               <Cellule>{formaterDate(e.date)}</Cellule>
               <Cellule>
                 <span className="flex items-center gap-2">
-                  <Pastille couleur={e.niveau === "Avertissement" ? "#ffb900" : "#0067b8"} />
+                  <Pastille couleur={e.niveau === "Avertissement" ? COULEUR_NIVEAU.Avertissement : "#0067c0"} />
                   {e.niveau}
                 </span>
               </Cellule>
@@ -308,34 +396,32 @@ export function Evenements({ data, limite }: { data: DonneesServeur; limite?: nu
   );
 }
 
-export function Performances({ data, connectes }: { data: DonneesServeur; connectes: number }) {
+export function Performances({ data, presents }: { data: DonneesServeur; presents: Present[] }) {
   const r = data.reseau;
+  const max = Math.max(r.cours.length, r.quiz.length, r.fiches.length, 1);
   const mesures: Array<{ nom: string; valeur: number; unite: string; max: number }> = [
     { nom: "Réponse de la base", valeur: data.mesures.latenceMs ?? 0, unite: " ms", max: SEUIL_LENT_MS * 2 },
-    { nom: "Élèves connectés", valeur: connectes, unite: "", max: Math.max(connectes, data.mesures.nbProfils, 1) },
+    { nom: "Élèves connectés", valeur: presents.length, unite: "", max: Math.max(presents.length, data.mesures.nbProfils, 1) },
     { nom: "Comptes", valeur: data.mesures.nbProfils, unite: "", max: Math.max(data.mesures.nbProfils, 1) },
-    { nom: "Cours", valeur: r.cours.length, unite: "", max: Math.max(r.cours.length, r.quiz.length, r.fiches.length, 1) },
-    { nom: "Quiz", valeur: r.quiz.length, unite: "", max: Math.max(r.cours.length, r.quiz.length, r.fiches.length, 1) },
-    { nom: "Fiches", valeur: r.fiches.length, unite: "", max: Math.max(r.cours.length, r.quiz.length, r.fiches.length, 1) },
+    { nom: "Cours", valeur: r.cours.length, unite: "", max },
+    { nom: "Quiz", valeur: r.quiz.length, unite: "", max },
+    { nom: "Fiches", valeur: r.fiches.length, unite: "", max },
   ];
   return (
     <div className="space-y-4">
-      <EnTete titre="Performances" sousTitre="Mesures réelles prises au dernier rafraîchissement (toutes les 15 secondes)." />
+      <EnTete titre="Performances" sousTitre="Mesures réelles, actualisées toutes les 15 secondes." />
       <div className="space-y-3">
         {mesures.map((m) => (
           <div key={m.nom}>
-            <div className="mb-1 flex justify-between text-sm">
+            <div className="mb-1 flex justify-between text-[13px]">
               <span>{m.nom}</span>
               <span className="font-semibold">
                 {m.valeur}
                 {m.unite}
               </span>
             </div>
-            <div className="h-3 rounded-sm bg-[#e5ebf3]">
-              <div
-                className="h-3 rounded-sm bg-[#0067b8]"
-                style={{ width: `${Math.min(100, (m.valeur / m.max) * 100)}%` }}
-              />
+            <div className="h-2.5 bg-[#e5e5e5]">
+              <div className="h-2.5 bg-[#0067c0]" style={{ width: `${Math.min(100, (m.valeur / m.max) * 100)}%` }} />
             </div>
           </div>
         ))}
@@ -344,167 +430,22 @@ export function Performances({ data, connectes }: { data: DonneesServeur; connec
   );
 }
 
-export function Outils({
-  data,
-  moi,
-  onActualiser,
-}: {
-  data: DonneesServeur;
-  moi: { id: string; pseudo: string };
-  onActualiser: () => void;
-}) {
-  const qc = useQueryClient();
-  const [titre, setTitre] = useState("");
-  const [corps, setCorps] = useState("");
-  const [message, setMessage] = useState<{ texte: string; erreur: boolean } | null>(null);
-  const [occupe, setOccupe] = useState(false);
-  const vue = construireVue(data.reseau, moi.id);
-
-  const executer = async (action: () => Promise<void>, succes: string) => {
-    setOccupe(true);
-    setMessage(null);
-    try {
-      await action();
-      setMessage({ texte: succes, erreur: false });
-      await qc.invalidateQueries({ queryKey: ["reseau"] });
-      onActualiser();
-    } catch (e) {
-      setMessage({ texte: e instanceof Error ? e.message : "L'action a échoué.", erreur: true });
-    } finally {
-      setOccupe(false);
-    }
-  };
-
-  const publier = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!titre.trim() || !corps.trim()) {
-      setMessage({ texte: "Le titre et le message sont obligatoires.", erreur: true });
-      return;
-    }
-    void executer(async () => {
-      await publierAnnonce(moi.id, titre, corps);
-      setTitre("");
-      setCorps("");
-    }, "Annonce publiée pour les élèves.");
-  };
-
-  const basculerMasque = (c: { id: string; masque: boolean }) =>
-    executer(
-      () => publierOrganisation(moi.id, masquerCours(vue.organisation, c.id, !c.masque)),
-      c.masque ? "Cours affiché à nouveau." : "Cours masqué pour les élèves.",
-    );
-
-  const supprimer = (c: CoursReseau) => {
-    if (!window.confirm(`Supprimer définitivement le cours « ${c.titre} » ?`)) return;
-    void executer(() => supprimerCours(c), "Cours supprimé.");
-  };
-
-  const retirerAnnonce = (id: string, titreAnnonce: string) => {
-    if (!window.confirm(`Supprimer l'annonce « ${titreAnnonce} » ?`)) return;
-    void executer(() => supprimerAnnonce(id), "Annonce supprimée.");
-  };
-
-  return (
-    <div className="space-y-6">
-      <EnTete titre="Outils d'administration" sousTitre="Gérer le contenu du jeu pour les élèves." />
-      {message && (
-        <p role="status" className={`text-sm ${message.erreur ? "text-[#d13438]" : "text-[#107c10]"}`}>
-          {message.texte}
-        </p>
-      )}
-      <section>
-        <h3 className="mb-2 font-semibold text-[#1f3a5f]">Publier une annonce</h3>
-        <form onSubmit={publier} className="space-y-2">
-          <input
-            aria-label="Titre de l'annonce"
-            value={titre}
-            maxLength={100}
-            onChange={(e) => setTitre(e.target.value)}
-            placeholder="Titre (100 caractères max)"
-            className="w-full rounded-sm border border-[#8a96a8] px-3 py-1.5 text-sm"
-          />
-          <textarea
-            aria-label="Message de l'annonce"
-            value={corps}
-            maxLength={1000}
-            onChange={(e) => setCorps(e.target.value)}
-            placeholder="Message (1000 caractères max)"
-            rows={3}
-            className="w-full rounded-sm border border-[#8a96a8] px-3 py-1.5 text-sm"
-          />
-          <Bouton type="submit" disabled={occupe}>
-            Publier l'annonce
-          </Bouton>
-        </form>
-      </section>
-      <section>
-        <h3 className="mb-2 font-semibold text-[#1f3a5f]">Cours du réseau</h3>
-        {vue.cours.length === 0 ? (
-          <p className="text-sm text-[#4a5568]">Aucun cours déposé pour l'instant.</p>
-        ) : (
-          <Tableau entetes={["Cours", "Auteur", "Déposé le", "Actions"]}>
-            {vue.cours.map((c) => (
-              <Ligne key={c.id}>
-                <Cellule>
-                  {c.titre} {c.masque && <em className="text-[#ffb900]">(masqué)</em>}
-                </Cellule>
-                <Cellule>{c.auteur}</Cellule>
-                <Cellule>{formaterDate(c.date)}</Cellule>
-                <Cellule>
-                  <div className="flex flex-wrap gap-1">
-                    <Bouton disabled={occupe} onClick={() => void basculerMasque(c)}>
-                      {c.masque ? "Afficher" : "Masquer"}
-                    </Bouton>
-                    <Bouton disabled={occupe} onClick={() => supprimer(c)}>
-                      Supprimer
-                    </Bouton>
-                  </div>
-                </Cellule>
-              </Ligne>
-            ))}
-          </Tableau>
-        )}
-      </section>
-      <section>
-        <h3 className="mb-2 font-semibold text-[#1f3a5f]">Annonces publiées</h3>
-        {data.reseau.annonces.length === 0 ? (
-          <p className="text-sm text-[#4a5568]">Aucune annonce publiée.</p>
-        ) : (
-          <Tableau entetes={["Annonce", "Auteur", "Publiée le", "Actions"]}>
-            {data.reseau.annonces.map((a) => (
-              <Ligne key={a.id}>
-                <Cellule>{a.titre}</Cellule>
-                <Cellule>{a.auteur}</Cellule>
-                <Cellule>{formaterDate(a.date)}</Cellule>
-                <Cellule>
-                  <Bouton disabled={occupe} onClick={() => retirerAnnonce(a.id, a.titre)}>
-                    Supprimer
-                  </Bouton>
-                </Cellule>
-              </Ligne>
-            ))}
-          </Tableau>
-        )}
-      </section>
-    </div>
-  );
-}
-
 export function Aide() {
   return (
-    <div className="space-y-3 text-sm">
-      <EnTete titre="Aide" sousTitre="Comment utiliser le Gestionnaire de serveur." />
+    <div className="space-y-3 text-[13px]">
+      <EnTete titre="Aide" sousTitre="Utiliser le Gestionnaire de serveur d'ISITECH WORLD." />
       <p>
-        Le Gestionnaire de serveur regroupe les informations du jeu : services, rôles, événements et performances. Les
-        données sont lues en direct et s'actualisent toutes les 15 secondes.
+        Les sections <strong>Cours</strong>, <strong>Quiz</strong>, <strong>Catégories</strong>, <strong>Annonces</strong> et{" "}
+        <strong>Élèves</strong> permettent de gérer directement le contenu du jeu. Les données sont relues toutes les 15
+        secondes.
       </p>
       <p>
-        Dans <strong>Outils</strong>, tu peux publier une annonce pour les élèves, masquer ou afficher un cours, ou
-        supprimer un cours ou une annonce. Ces actions sont irréversibles pour les suppressions.
+        Les suppressions sont définitives. Masquer un cours le cache aux élèves sans le supprimer. Supprimer une catégorie
+        déplace ses cours dans « Autre ».
       </p>
       <p>
-        Le mode provisoire permet de reconnaître les admins par leur pseudo. Pour une vraie sécurité, renseigne leurs
-        identifiants de compte dans <code>ADMIN_IDS</code> (fichier admins.ts).
+        Le mode provisoire reconnaît les admins par leur pseudo. Pour une vraie sécurité, renseigne leurs identifiants de
+        compte dans <code>ADMIN_IDS</code> (fichier admins.ts).
       </p>
     </div>
   );

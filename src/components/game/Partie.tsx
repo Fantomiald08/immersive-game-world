@@ -657,7 +657,7 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-3">
           <ServeurWindows
             moi={{ id: moi.id, pseudo: moi.pseudo }}
-            connectes={ecole.roster.length}
+            presents={ecole.roster}
             onFermer={() => setTerminal(null)}
           />
         </div>

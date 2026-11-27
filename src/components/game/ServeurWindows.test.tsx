@@ -13,17 +13,17 @@ const avec = (ui: React.ReactElement) => (
 
 describe("Gestionnaire de serveur : accès", () => {
   it("refuse l'accès à un élève", () => {
-    render(avec(<ServeurWindows moi={{ id: "u1", pseudo: "Élève" }} connectes={3} onFermer={() => {}} />));
+    render(avec(<ServeurWindows moi={{ id: "u1", pseudo: "Élève" }} presents={[]} onFermer={() => {}} />));
     expect(screen.getByRole("alert").textContent).toContain("Accès refusé");
-    expect(screen.queryByRole("navigation", { name: "Menu" })).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "Navigation du serveur" })).toBeNull();
   });
 
   it("ouvre le gestionnaire à un administrateur", () => {
-    render(avec(<ServeurWindows moi={{ id: "u2", pseudo: "Leo Dupire" }} connectes={3} onFermer={() => {}} />));
+    render(avec(<ServeurWindows moi={{ id: "u2", pseudo: "Leo Dupire" }} presents={[]} onFermer={() => {}} />));
     expect(screen.getByRole("dialog", { name: "Gestionnaire de serveur" })).toBeTruthy();
-    const nav = within(screen.getByRole("complementary", { name: "Navigation du serveur" }));
+    const nav = within(screen.getByRole("navigation", { name: "Navigation du serveur" }));
     expect(nav.getByRole("button", { name: /Tableau de bord/ })).toBeTruthy();
     expect(nav.getByRole("button", { name: /Services/ })).toBeTruthy();
-    expect(nav.getByRole("button", { name: /Outils/ })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Outils" })).toBeTruthy();
   });
 });
