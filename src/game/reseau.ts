@@ -20,7 +20,9 @@ export const TYPE_FICHIER = "__fichier__";
 export const TYPE_ANNONCE = "__annonce__";
 export const TYPE_ORG = "__organisation__";
 export const TYPE_QUIZ = "__quiz__";
-export const TAILLE_MAX = 2 * 1024 * 1024;
+/** Taille maximale d'un fichier déposé, en Mo (le fichier est stocké encodé en base64, soit environ un tiers de plus). */
+export const TAILLE_MAX_MO = 5;
+export const TAILLE_MAX = TAILLE_MAX_MO * 1024 * 1024;
 export const FORMATS = ".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.md,.png,.jpg,.jpeg,.gif,.zip";
 
 export type FichierMeta = { nom: string; mime: string; taille: number; ref: string };
@@ -210,7 +212,7 @@ export async function deposerCours(
 ) {
   let meta: FichierMeta | undefined;
   if (c.fichier) {
-    if (c.fichier.size > TAILLE_MAX) throw new Error("Le fichier dépasse 2 Mo.");
+    if (c.fichier.size > TAILLE_MAX) throw new Error(`Le fichier dépasse ${TAILLE_MAX_MO} Mo.`);
     const data = await versDataUrl(c.fichier);
     const { data: ligne, error } = await supabase
       .from("courses")

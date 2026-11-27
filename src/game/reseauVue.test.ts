@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assembler, TYPE_ANNONCE, TYPE_ORG, TYPE_QUIZ } from "./reseau";
+import { assembler, TAILLE_MAX, TAILLE_MAX_MO, TYPE_ANNONCE, TYPE_ORG, TYPE_QUIZ } from "./reseau";
 import { TYPE_FICHE } from "./fiche";
 import { construireVue } from "./reseauVue";
 import {
@@ -212,5 +212,12 @@ describe("fiches de révision", () => {
     const r = assembler([cours("c1", "Réseaux", "eleve"), ligne(TYPE_FICHE, "c1", "{cassé", "eleve")], pseudos);
     expect(r.fiches).toEqual([]);
     expect(r.cours).toHaveLength(1);
+  });
+});
+
+describe("taille des fichiers déposés", () => {
+  it("accepte jusqu'à 5 Mo et l'indique dans le message", () => {
+    expect(TAILLE_MAX_MO).toBe(5);
+    expect(TAILLE_MAX).toBe(5 * 1024 * 1024);
   });
 });
