@@ -26,7 +26,7 @@ export function VuePartie({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <div className="relative mx-auto w-full max-w-[800px] overflow-hidden rounded-lg border-4 border-[#2a1810] bg-black">
+      <div className="relative mx-auto w-full max-w-[1120px] overflow-hidden rounded-lg border-4 border-[#2a1810] bg-black">
         <canvas
           ref={canvas}
           width={jeu.largeur}
