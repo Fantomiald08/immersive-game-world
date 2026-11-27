@@ -33,6 +33,7 @@ import type { Cible } from "@/game/carte/moteur";
 import { SALLES, type Arrivee, type Pt, type Sortie, type ZoneId } from "@/game/carte/types";
 import { ZONE_DEPART, ZONES } from "@/game/carte/zones";
 import { useEcole, useSalle } from "@/game/multijoueur";
+import { ServeurWindows } from "./ServeurWindows";
 import { DUREE_STATUT, MAX_STATUT, type Etat } from "@/game/salle";
 import { ajouterXp, useHeros, useMonProfil, useRafraichirProfil, type Profil } from "@/game/profil";
 import { evenement, ouvrirJour, type Evenement, type Prog } from "@/game/progression";
@@ -104,7 +105,7 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
   zoneIdRef.current = zoneId;
   const [fondu, setFondu] = useState(false);
   const [fen, setFen] = useState<Fen | null>(null);
-  const [terminal, setTerminal] = useState<null | "cours" | "combat" | "linux" | "arcade">(null);
+  const [terminal, setTerminal] = useState<null | "cours" | "combat" | "linux" | "arcade" | "serveur">(null);
   const [defiFait, setDefiFait] = useState(() => lireDefi(moi.id));
   const [toast, setToast] = useState("");
   const [msg, setMsg] = useState("");
@@ -275,6 +276,9 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
           break;
         case "arcade":
           setTerminal("arcade");
+          break;
+        case "serveur":
+          setTerminal("serveur");
           break;
         case "classement":
           void qc.invalidateQueries({ queryKey: ["heros"] });
@@ -649,6 +653,15 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
         />
       )}
       {terminal === "linux" && <TerminalLinux onFermer={() => setTerminal(null)} />}
+      {terminal === "serveur" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-3">
+          <ServeurWindows
+            moi={{ id: moi.id, pseudo: moi.pseudo }}
+            connectes={ecole.roster.length}
+            onFermer={() => setTerminal(null)}
+          />
+        </div>
+      )}
       {terminal === "combat" && (
         <ReseauCombat
           moi={moi}
