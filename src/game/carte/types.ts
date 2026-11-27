@@ -71,6 +71,7 @@ export type Kind =
   | "tableauHeros"
   | "pcgamer"
   | "pclinux"
+  | "serveurwin"
   | "arcade";
 
 /** Ce qui se passe quand on appuie sur Espace devant un objet. */
@@ -82,6 +83,7 @@ export type Agir =
   | { k: "arcade" }
   | { k: "classement" }
   | { k: "tableau" }
+  | { k: "serveur" }
   | { k: "texte"; titre: string; texte: string };
 
 export type Objet = {

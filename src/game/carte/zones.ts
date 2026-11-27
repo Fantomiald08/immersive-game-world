@@ -36,6 +36,7 @@ const o = (kind: Kind, x: number, y: number, e: Partial<Objet> = {}): Objet => {
   if (kind === "pcgamer") return { ...base, agir: { k: "combat" } };
   if (kind === "pclinux") return { ...base, agir: { k: "terminal_linux" } };
   if (kind === "arcade") return { ...base, agir: { k: "arcade" } };
+  if (kind === "serveurwin") return { ...base, agir: { k: "serveur" } };
   return base;
 };
 const pnj = (
@@ -798,6 +799,7 @@ const SALLES_DEF: Zone[] = [
       ...rangee("baie", [2, 3, 4, 8, 9, 10], 2),
       o("pcgamer", 3, 4),
       o("pcgamer", 7, 4),
+      o("serveurwin", 5, 4),
       o("baie", 1, 5),
       o("baie", 1, 6),
       o("baie", 10, 5),

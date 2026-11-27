@@ -40,6 +40,9 @@ export function interactions(z: Zone): Interaction[] {
       case "arcade":
         r.push({ ...base, icone: "🕹️", nom: "Borne d'arcade (mini-jeux)", type: "pcgamer" });
         break;
+      case "serveur":
+        r.push({ ...base, icone: "🖥️", nom: "Gestionnaire de serveur (admin)", type: "ordinateur" });
+        break;
       case "classement":
         r.push({ ...base, icone: "🏆", nom: "Classement des élèves", type: "classement" });
         break;
