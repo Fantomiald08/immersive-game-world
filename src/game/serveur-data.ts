@@ -32,7 +32,7 @@ export function tempsReelOuvert(): boolean {
 }
 
 export type DonneesServeur = {
-  mesures: Mesures;
+  mesures: Mesures & { horodatage: number };
   services: ServiceServeur[];
   roles: RoleServeur[];
   verifications: Verification[];
@@ -57,7 +57,7 @@ export function useDonneesServeur(actif: boolean) {
         provisoire: modeProvisoire(),
       };
       return {
-        mesures,
+        mesures: { ...mesures, horodatage: Date.now() },
         services: evaluerServices(mesures),
         roles: evaluerRoles(reseau),
         verifications: verifier(mesures, reseau),
