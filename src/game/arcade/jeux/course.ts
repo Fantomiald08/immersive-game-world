@@ -377,14 +377,30 @@ function spriteVoiturePret(): HTMLImageElement | null {
   return SPRITE_VOITURE && SPRITE_VOITURE.complete && SPRITE_VOITURE.naturalWidth > 0 ? SPRITE_VOITURE : null;
 }
 
-/** Dessine l'illustration en plein cadre, fixe (cover), comme décor de la course. */
-function dessinerFondIllustre(ctx: CanvasRenderingContext2D): void {
+/** Position de la voiture du joueur dans l'illustration (coordonnées de l'image 1024×572). */
+const VOITURE_IMG = { x: 700, y: 430 };
+
+/**
+ * Dessine l'illustration en plein cadre (cover), avec un léger décalage selon la position latérale
+ * et la progression sur le circuit (effet de conduite). Renvoie la position à l'écran de la voiture peinte.
+ */
+function dessinerFondIllustre(
+  ctx: CanvasRenderingContext2D,
+  me: { x: number; z: number },
+): { moiPx: number; moiPy: number } | null {
   const img = fondPret();
-  if (!img) return;
-  const ratio = Math.max(L / img.naturalWidth, H / img.naturalHeight);
+  if (!img) return null;
+  const ratio = Math.max(L / img.naturalWidth, H / img.naturalHeight) * 1.08;
   const w = img.naturalWidth * ratio;
   const h = img.naturalHeight * ratio;
-  ctx.drawImage(img, (L - w) / 2, (H - h) / 2, w, h);
+  const maxX = (w - L) / 2;
+  const maxY = (h - H) / 2;
+  const decX = Math.max(-maxX, Math.min(maxX, -me.x * 16 + Math.sin(me.z / 90) * 10));
+  const decY = Math.max(-maxY, Math.min(maxY, Math.sin(me.z / 140) * 4));
+  const x0 = (L - w) / 2 + decX;
+  const y0 = (H - h) / 2 + decY;
+  ctx.drawImage(img, x0, y0, w, h);
+  return { moiPx: x0 + VOITURE_IMG.x * ratio, moiPy: y0 + VOITURE_IMG.y * ratio };
 }
 
 /** Ciel nocturne, skyline urbaine, enceinte d'arène à gradins et projecteurs (couche en cache). */
@@ -1004,8 +1020,8 @@ function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx
   ctx.scale(1.1, 1.1);
   ctx.translate(-L / 2, -H * 0.72);
   const illustre = fondPret() !== null;
-  if (illustre) dessinerFondIllustre(ctx);
-  else r(ctx, -120, -120, L + 240, HORIZON + 122, "#020208");
+  const fondPos = illustre ? dessinerFondIllustre(ctx, me) : null;
+  if (!illustre) r(ctx, -120, -120, L + 240, HORIZON + 122, "#020208");
 
   // Voûte de l'arène qui défile avec le cap de la caméra
   const scroll = ((((-Math.atan2(cam.sinP, cam.cosP) * 540 * 0.9) % L_CIEL) + L_CIEL) % L_CIEL);
@@ -1022,7 +1038,7 @@ function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx
     dessinerCielDecale(L_CIEL - scroll);
   }
   // Projecteurs qui balaient le ciel
-  for (let k = 0; k < 3; k++) {
+  for (let k = 0; k < (illustre ? 0 : 3); k++) {
     const a = Math.sin(fx.horloge * 0.7 + k * 2.1) * 0.5;
     const bx = 160 + k * 240;
     ctx.fillStyle = `rgba(${k % 2 ? "255,47,180" : "25,230,255"},0.07)`;
@@ -1043,7 +1059,7 @@ function dessiner(ctx: CanvasRenderingContext2D, base: EtatBase, moi: string, fx
   ctx.fillRect(-120, HORIZON, L + 240, H + 200 - HORIZON);
   }
 
-  const { moiPx, moiPy } = dessinerScene(ctx, cam, {
+  const { moiPx, moiPy } = fondPos ?? dessinerScene(ctx, cam, {
     fondIllustre: illustre,
     voitureSprite: spriteVoiturePret(),
     camZ,
