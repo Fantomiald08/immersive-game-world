@@ -1,9 +1,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ generer: vi.fn(), extraire: vi.fn() }));
-vi.mock("@tanstack/react-start", () => ({ useServerFn: () => mocks.generer, createServerFn: () => ({ middleware: () => ({ inputValidator: () => ({ handler: () => mocks.generer }) }) }) }));
+const mocks = vi.hoisted(() => ({ generer: vi.fn(), fiche: vi.fn(), extraire: vi.fn() }));
+vi.mock("@tanstack/react-start", () => ({ useServerFn: (f: unknown) => (f === "fiche" ? mocks.fiche : mocks.generer), createServerFn: () => ({ middleware: () => ({ inputValidator: () => ({ handler: () => mocks.generer }) }) }) }));
 vi.mock("@/game/fichiers", () => ({ extraireTexte: mocks.extraire, versDataUrl: vi.fn() }));
+vi.mock("@/game/fiche-auto.functions", () => ({ genererFicheRevision: "fiche" }));
 vi.mock("@/integrations/supabase/auth-middleware", () => ({ requireSupabaseAuth: {} }));
 import { FormDepot } from "./Reseau";
 
@@ -15,7 +16,11 @@ function ouvrir() {
   fireEvent.change(screen.getByPlaceholderText("Ex : Configurer un serveur DHCP"), { target: { value: "DHCP" } });
   return { deposer, terminer };
 }
-beforeEach(() => { vi.clearAllMocks(); mocks.generer.mockResolvedValue({ quizId: "quiz" }); });
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.generer.mockResolvedValue({ quizId: "quiz" });
+  mocks.fiche.mockResolvedValue({ ficheId: "fiche", fiche: null });
+});
 describe("dépôt automatique", () => {
   it("génère 8 questions dès qu'un cours texte est enregistré", async () => {
     const { deposer, terminer } = ouvrir();
@@ -24,6 +29,16 @@ describe("dépôt automatique", () => {
     await waitFor(() => expect(terminer).toHaveBeenCalledTimes(1));
     expect(deposer).toHaveBeenCalledTimes(1);
     expect(mocks.generer).toHaveBeenCalledWith({ data: { coursId: id, nombre: 8 } });
+  });
+  it("crée aussi la fiche de révision après le quiz, sans bloquer le dépôt", async () => {
+    mocks.fiche.mockRejectedValueOnce(new Error("fiche indisponible"));
+    const { deposer, terminer } = ouvrir();
+    fireEvent.change(screen.getByRole("textbox", { name: /Texte du cours/ }), { target: { value: texte } });
+    fireEvent.click(screen.getByRole("button", { name: /Déposer et générer/ }));
+    await waitFor(() => expect(terminer).toHaveBeenCalledTimes(1));
+    expect(deposer).toHaveBeenCalledTimes(1);
+    expect(mocks.fiche).toHaveBeenCalledWith({ data: { coursId: id, regenerer: false } });
+    expect(mocks.generer).toHaveBeenCalledTimes(1);
   });
   it("extrait le fichier importé avant de créer le cours et son quiz", async () => {
     mocks.extraire.mockResolvedValue({ texte });

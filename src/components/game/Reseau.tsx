@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { genererQuizAutomatique } from "@/game/quiz-auto.functions";
+import { genererFicheRevision } from "@/game/fiche-auto.functions";
+import { FicheVue } from "./FicheVue";
 import { extraireTexte, versDataUrl } from "@/game/fichiers";
 import { lireFichierIA } from "@/game/ia.functions";
 import { Button } from "@/components/ui/button";
@@ -416,6 +418,7 @@ function Detail({
   const auteur = c.auteurId === moi.id;
   const peutQuiz = admin || auteur;
   const valide = (q: QuizReseau) => v.quizJouables.some((j) => j.quiz.id === q.id);
+  const genererFiche = useServerFn(genererFicheRevision);
 
   const ouvrir = async () => {
     try {
@@ -471,6 +474,31 @@ function Detail({
       )}
 
       <section className="rounded border-2 border-[#9fc2e8] bg-white p-3">
+        <div className="mb-4">
+          <h3 className="mb-2 font-bold">📘 Fiche de révision</h3>
+          {c.fiche ? (
+            <FicheVue fiche={c.fiche} />
+          ) : auteur ? (
+            <button
+              type="button"
+              className="rounded border-2 border-[#9fc2e8] bg-white px-3 py-1 text-sm hover:bg-[#eef5ff]"
+              onClick={async () => {
+                setErreur("");
+                try {
+                  await genererFiche({ data: { coursId: c.id, regenerer: false } });
+                  await rechargement();
+                } catch (e) {
+                  setErreur(e instanceof Error ? e.message : "La fiche n'a pas pu être créée.");
+                }
+              }}
+            >
+              📘 Générer la fiche de révision
+            </button>
+          ) : (
+            <p className="text-sm text-muted-foreground">Pas encore de fiche pour ce cours.</p>
+          )}
+          {erreur && <p role="alert" className="mt-2 text-red-700">{erreur}</p>}
+        </div>
         <h3 className="mb-2 font-bold">⚔ Quiz de ce cours</h3>
         {c.quiz.length === 0 && (
           <p className="text-[#47628a]">
@@ -611,6 +639,7 @@ export function FormDepot({
   onTermine: (c: { categorie: string }) => Promise<void>;
 }) {
   const generer = useServerFn(genererQuizAutomatique);
+  const genererFiche = useServerFn(genererFicheRevision);
   const lireScan = useServerFn(lireFichierIA);
   const [coursId, setCoursId] = useState<string | null>(null);
   const [titre, setTitre] = useState(""),
@@ -667,6 +696,9 @@ export function FormDepot({
       setCoursId(id);
       setEtape("Création du quiz IA…");
       await generer({ data: { coursId: id, nombre: 8 } });
+      setEtape("Création de la fiche de révision…");
+      // Facultative : le cours et son quiz sont déjà enregistrés si la fiche échoue.
+      await genererFiche({ data: { coursId: id, regenerer: false } }).catch(() => undefined);
       await onTermine({ categorie });
     } catch (e) {
       setErreur(
