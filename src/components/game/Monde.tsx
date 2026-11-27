@@ -229,6 +229,7 @@ export function Monde({
     elMoi = useRef<HTMLDivElement>(null);
   const taille = useRef({ w: 800, h: 520 });
   const sims = useRef(new Map<string, Sim>());
+  const elementsDistants = useRef(new Map<string, HTMLDivElement>());
   const cleCible = useRef("");
 
   const [ui, setUi] = useState({ dir: depart.dir, marche: false });
@@ -416,6 +417,7 @@ export function Monde({
           s.want = d.e.marche ? d.e.dir : null;
           s.run = d.e.run;
         }
+        s.el = elementsDistants.current.get(id) ?? null;
         avancer(c.zone, s.m, s.want, s.run ? V_COURSE : V_MARCHE, dt, pts);
         const f = Math.min(1, dt * 14);
         if (Math.hypot(s.m.x - s.vis.x, s.m.y - s.vis.y) > 3) {
@@ -445,24 +447,7 @@ export function Monde({
   const W = zone.l * T,
     H = zone.h * T;
   const echelle = reglages.joystick === "petit" ? 0.75 : reglages.joystick === "grand" ? 1.3 : 1;
-  const refDistant = (id: string) => (el: HTMLDivElement | null) => {
-    const s = sims.current.get(id);
-    if (s) s.el = el;
-    else if (el) {
-      /* sera rattaché à la prochaine image */ pendants.current.set(id, el);
-    }
-  };
-  const pendants = useRef(new Map<string, HTMLDivElement>());
   const debuts = useRef(new Map<string, Pt>()); // position de départ figée : React ne doit jamais réécrire la position animée
-  useEffect(() => {
-    for (const [id, el] of pendants.current) {
-      const s = sims.current.get(id);
-      if (s) {
-        s.el = el;
-        pendants.current.delete(id);
-      }
-    }
-  });
 
   return (
     <div
@@ -504,9 +489,8 @@ export function Monde({
               y={d0.y}
               onClick={() => onClicJoueur(j.id)}
               refEl={(el) => {
-                const s = sims.current.get(j.id);
-                if (s) s.el = el;
-                else if (el) pendants.current.set(j.id, el);
+                if (el) elementsDistants.current.set(j.id, el);
+                else elementsDistants.current.delete(j.id);
               }}
             >
               <Etiquettes
