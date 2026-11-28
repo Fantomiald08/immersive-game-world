@@ -55,6 +55,7 @@ export type Database = {
           bio: string
           classe: string
           id: string
+          isicoins: number
           last: string
           niveau: number
           personnage_cree: boolean
@@ -72,6 +73,7 @@ export type Database = {
           bio?: string
           classe?: string
           id: string
+          isicoins?: number
           last?: string
           niveau?: number
           personnage_cree?: boolean
@@ -89,6 +91,7 @@ export type Database = {
           bio?: string
           classe?: string
           id?: string
+          isicoins?: number
           last?: string
           niveau?: number
           personnage_cree?: boolean
@@ -99,6 +102,24 @@ export type Database = {
           updated_at?: string
           xp?: number
         }
+        Relationships: []
+      }
+      boutique_catalogue: {
+        Row: { categorie: string; id: string; prix: number }
+        Insert: { categorie: string; id: string; prix: number }
+        Update: { categorie?: string; id?: string; prix?: number }
+        Relationships: []
+      }
+      boutique_achats: {
+        Row: { acquis_le: string; article: string; user_id: string }
+        Insert: { acquis_le?: string; article: string; user_id: string }
+        Update: { acquis_le?: string; article?: string; user_id?: string }
+        Relationships: []
+      }
+      boutique_equipements: {
+        Row: { article: string; categorie: string; user_id: string }
+        Insert: { article: string; categorie: string; user_id: string }
+        Update: { article?: string; categorie?: string; user_id?: string }
         Relationships: []
       }
     }
@@ -112,6 +133,23 @@ export type Database = {
           niveau: number
           xp: number
         }[]
+      }
+      attribuer_recompense: {
+        Args: { montant: number; monnaie: number }
+        Returns: {
+          isicoins: number
+          niveau: number
+          niveau_avant: number
+          xp: number
+        }[]
+      }
+      acheter_article: {
+        Args: { article_id: string }
+        Returns: number
+      }
+      equiper_article: {
+        Args: { categorie_choisie: string; article_id: string | null }
+        Returns: undefined
       }
       est_joueur: { Args: { _uid: string }; Returns: boolean }
     }
