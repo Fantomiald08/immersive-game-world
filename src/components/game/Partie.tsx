@@ -455,77 +455,43 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
         filter: reglages.contraste ? "contrast(1.25) saturate(1.1)" : undefined,
       }}
     >
-      <div className="pixel-box flex flex-wrap items-center justify-between gap-2 p-2">
-        <span className="font-pixel text-xs text-primary">
-          ISITECH WORLD · <span className="text-accent">{zone.nom}</span>
-          {solo && <span className="ml-2 text-[9px] text-muted-foreground">📖 MODE HISTOIRE</span>}
-        </span>
-        <div className="flex flex-wrap gap-2">
-          <button
-            className="pixel-btn !px-2 !py-1"
-            onClick={() => setPauseOuverte(true)}
-            title="Menu (Échap)"
-          >
-            ☰ Menu
-          </button>
-          <button className="pixel-btn !px-2 !py-1" onClick={() => setFen({ k: "plan" })}>
-            🗺 Carte
-          </button>
+      <header className="pixel-box flex flex-wrap items-center justify-between gap-3 px-3 py-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="font-pixel text-xs text-primary">ISITECH WORLD</span>
+          <span className="text-sm text-muted-foreground">
+            · <span className="text-accent">{zone.nom}</span>
+          </span>
           {solo ? (
-            <button
-              className="pixel-btn !px-2 !py-1"
+            <span className="rounded-full bg-accent/20 px-2 py-0.5 text-xs">📖 Mode histoire</span>
+          ) : (
+            <span className="hidden text-sm text-muted-foreground sm:inline">👥 {ecole.roster.length} en ligne</span>
+          )}
+        </div>
+        <nav aria-label="Actions" className="flex items-center gap-1">
+          <IconeAction libelle="Menu (Échap)" icone="☰" onClick={() => setPauseOuverte(true)} />
+          <IconeAction libelle="Carte" icone="🗺" onClick={() => setFen({ k: "plan" })} />
+          {solo ? (
+            <IconeAction
+              libelle="Missions"
+              icone="📖"
               onClick={() => {
                 void qc.invalidateQueries({ queryKey: ["reseau"] });
                 setFen({ k: "tableau" });
               }}
-            >
-              📖 Missions
-            </button>
+            />
           ) : (
-            <button
-              className="pixel-btn !px-2 !py-1"
+            <IconeAction
+              libelle="Messages"
+              icone="✉"
+              badge={ecole.nonLus}
               onClick={() => setFen({ k: "messages", id: null })}
-            >
-              ✉ Messages
-              {ecole.nonLus > 0 && (
-                <span className="ml-1 rounded-full bg-destructive px-2 text-xs text-white">
-                  {ecole.nonLus}
-                </span>
-              )}
-            </button>
+            />
           )}
-          <button
-            className="pixel-btn !px-2 !py-1"
-            onClick={() => setFen({ k: "profil", id: moi.id })}
-          >
-            👤 Profil
-          </button>
-          <button className="pixel-btn !px-2 !py-1" onClick={() => setFen({ k: "reglages" })}>
-            ⚙
-          </button>
-          <button className="pixel-btn !px-2 !py-1" onClick={deco}>
-            Déconnexion
-          </button>
-        </div>
-      </div>
-
-      <div className="pixel-box flex items-center gap-3 p-2">
-        <span className="font-pixel text-[9px]">Nv {moi.niveau}</span>
-        <div className="h-3 flex-1 border-2 border-border bg-muted">
-          <div
-            className="h-full bg-primary transition-all duration-500"
-            style={{ width: `${moi.xp % 100}%` }}
-          />
-        </div>
-        <span className="text-sm">
-          {titreNiveau(moi.niveau)} · {moi.xp} XP
-        </span>
-        {!solo && (
-          <span className="hidden text-sm text-muted-foreground sm:inline">
-            👥 {ecole.roster.length} en ligne
-          </span>
-        )}
-      </div>
+          <IconeAction libelle="Profil" icone="👤" onClick={() => setFen({ k: "profil", id: moi.id })} />
+          <IconeAction libelle="Paramètres" icone="⚙" onClick={() => setFen({ k: "reglages" })} />
+          <IconeAction libelle="Déconnexion" icone="⏻" onClick={deco} danger />
+        </nav>
+      </header>
 
       <div className="relative">
         <Monde
@@ -735,7 +701,7 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
         />
       )}
       {fen?.k === "tableau" && (
-        <Tableau moi={moi} prog={prog} histoire={histoire} solo={solo} onFermer={fermer} />
+        <Tableau moi={moi} prog={prog} solo={solo} onFermer={fermer} />
       )}
       {fen?.k === "messages" && (
         <Messages
@@ -821,4 +787,36 @@ function marquerDefi(id: string) {
   } catch {
     /* stockage indisponible */
   }
+}
+
+/** Icône d'action de la barre du haut : libellé en infobulle et pour les lecteurs d'écran, pastille de compteur optionnelle. */
+function IconeAction({
+  libelle,
+  icone,
+  onClick,
+  badge,
+  danger,
+}: {
+  libelle: string;
+  icone: string;
+  onClick: () => void;
+  badge?: number;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={libelle}
+      aria-label={libelle}
+      className={`ui-icone relative ${danger ? "ui-icone-danger" : ""}`}
+    >
+      <span aria-hidden>{icone}</span>
+      {badge !== undefined && badge > 0 && (
+        <span className="absolute -right-1 -top-1 min-w-[18px] rounded-full bg-destructive px-1 text-center text-[11px] leading-[18px] text-white">
+          {badge}
+        </span>
+      )}
+    </button>
+  );
 }
