@@ -446,13 +446,322 @@ const grep: Cmd = ({ etat, args }) => {
   return { etat, sortie: lignes.join("\n") };
 };
 
+/* ───────────── Texte ───────────── */
+
+/** Dernier argument qui désigne un fichier (on ignore les options et la valeur de -n). */
+const cibleFichier = (args: readonly string[]): string | undefined => {
+  for (let i = args.length - 1; i >= 0; i--) {
+    const a = args[i]!;
+    if (a.startsWith("-") || args[i - 1] === "-n") continue;
+    return a;
+  }
+  return undefined;
+};
+
+/** Lignes d'un fichier texte, ou message d'erreur si la cible n'existe pas ou n'est pas un fichier. */
+const lignesDe = (etat: Etat, cible: string | undefined, cmd: string): { lignes: string[] } | { erreur: string } => {
+  if (!cible) return { erreur: `${cmd}: opérande de fichier manquant` };
+  const n = trouver(etat.racine, normaliser(etat.chemin, cible));
+  if (!n) return { erreur: `${cmd}: ${cible} : fichier introuvable` };
+  if (n.type !== "fichier") return { erreur: `${cmd}: ${cible} : c'est un dossier` };
+  return { lignes: n.contenu.split("\n").filter((l, i, t) => i < t.length - 1 || l !== "") };
+};
+
+const entierOption = (args: readonly string[], option: string, defaut: number): number => {
+  const i = args.indexOf(option);
+  return i >= 0 ? Number(args[i + 1]) : defaut;
+};
+
+const head: Cmd = ({ etat, args }) => {
+  const n = entierOption(args, "-n", 10);
+  if (!Number.isInteger(n) || n < 0) return erreur(etat, "head: nombre de lignes invalide");
+  const r = lignesDe(etat, cibleFichier(args), "head");
+  if ("erreur" in r) return erreur(etat, r.erreur);
+  return { etat, sortie: r.lignes.slice(0, n).join("\n") };
+};
+
+const tail: Cmd = ({ etat, args }) => {
+  const n = entierOption(args, "-n", 10);
+  if (!Number.isInteger(n) || n < 0) return erreur(etat, "tail: nombre de lignes invalide");
+  const r = lignesDe(etat, cibleFichier(args), "tail");
+  if ("erreur" in r) return erreur(etat, r.erreur);
+  return { etat, sortie: r.lignes.slice(Math.max(0, r.lignes.length - n)).join("\n") };
+};
+
+const wc: Cmd = ({ etat, args }) => {
+  const cible = cibleFichier(args);
+  const n = trouver(etat.racine, normaliser(etat.chemin, cible ?? ""));
+  if (!cible || !n || n.type !== "fichier") return erreur(etat, `wc: ${cible ?? ""} : fichier introuvable`);
+  const lignes = n.contenu.split("\n").length - 1;
+  const mots = n.contenu.split(/\s+/).filter(Boolean).length;
+  const octets = new TextEncoder().encode(n.contenu).length;
+  if (args.includes("-l")) return { etat, sortie: `${lignes} ${cible}` };
+  if (args.includes("-w")) return { etat, sortie: `${mots} ${cible}` };
+  if (args.includes("-c")) return { etat, sortie: `${octets} ${cible}` };
+  return { etat, sortie: `${lignes} ${mots} ${octets} ${cible}` };
+};
+
+const sort: Cmd = ({ etat, args }) => {
+  const r = lignesDe(etat, cibleFichier(args), "sort");
+  if ("erreur" in r) return erreur(etat, r.erreur);
+  const triees = [...r.lignes].sort((a, b) => a.localeCompare(b, "fr"));
+  if (args.includes("-r")) triees.reverse();
+  return { etat, sortie: triees.join("\n") };
+};
+
+const uniq: Cmd = ({ etat, args }) => {
+  const r = lignesDe(etat, cibleFichier(args), "uniq");
+  if ("erreur" in r) return erreur(etat, r.erreur);
+  const sortie = r.lignes.filter((l, i) => i === 0 || l !== r.lignes[i - 1]);
+  return { etat, sortie: sortie.join("\n") };
+};
+
+/** Arborescence d'un dossier avec ├── et └──, comme la commande tree. */
+const tree: Cmd = ({ etat, args }) => {
+  const cible = cibleFichier(args) ?? ".";
+  const depart = trouver(etat.racine, normaliser(etat.chemin, cible));
+  if (!depart) return erreur(etat, `tree: ${cible} : introuvable`);
+  if (depart.type !== "dossier") return erreur(etat, `tree: ${cible} : n'est pas un dossier`);
+  const lignes: string[] = [cible === "." ? "." : cible];
+  let dossiers = 0;
+  let fichiers = 0;
+  const parcourir = (n: Dossier, prefixe: string) => {
+    const noms = Object.keys(n.enfants).sort();
+    noms.forEach((nom, i) => {
+      const enfant = n.enfants[nom]!;
+      const dernier = i === noms.length - 1;
+      lignes.push(`${prefixe}${dernier ? "└── " : "├── "}${nom}${enfant.type === "dossier" ? "/" : ""}`);
+      if (enfant.type === "dossier") {
+        dossiers++;
+        parcourir(enfant, prefixe + (dernier ? "    " : "│   "));
+      } else fichiers++;
+    });
+  };
+  if (depart.type === "dossier") parcourir(depart, "");
+  lignes.push("", `${dossiers} dossier(s), ${fichiers} fichier(s)`);
+  return { etat, sortie: lignes.join("\n") };
+};
+
+/* ───────────── Fichiers ───────────── */
+
+const stat: Cmd = ({ etat, args }) => {
+  const cible = cibleFichier(args);
+  const n = cible ? trouver(etat.racine, normaliser(etat.chemin, cible)) : null;
+  if (!cible || !n) return erreur(etat, `stat: impossible d'examiner '${cible ?? ""}' : fichier introuvable`);
+  const taille = n.type === "fichier" ? n.taille : tailleTotale(n);
+  return {
+    etat,
+    sortie: [
+      `  Fichier : ${cible}`,
+      `  Type    : ${n.type === "dossier" ? "dossier" : "fichier ordinaire"}`,
+      `  Taille  : ${taille} octets`,
+      `  Droits  : ${n.perms}`,
+    ].join("\n"),
+  };
+};
+
+const file: Cmd = ({ etat, args }) => {
+  const cible = cibleFichier(args);
+  const n = cible ? trouver(etat.racine, normaliser(etat.chemin, cible)) : null;
+  if (!cible || !n) return erreur(etat, `file: ${cible ?? ""} : fichier introuvable`);
+  if (n.type === "dossier") return { etat, sortie: `${cible}: répertoire` };
+  return { etat, sortie: `${cible}: ${n.taille === 0 ? "fichier vide" : "texte ASCII"}` };
+};
+
+const basename: Cmd = ({ etat, args }) => {
+  const chemin = args[0];
+  if (!chemin) return erreur(etat, "basename: opérande manquante");
+  const segments = chemin.split("/").filter(Boolean);
+  return { etat, sortie: segments[segments.length - 1] ?? "/" };
+};
+
+const dirname: Cmd = ({ etat, args }) => {
+  const chemin = args[0];
+  if (!chemin) return erreur(etat, "dirname: opérande manquante");
+  const segments = chemin.split("/").filter(Boolean);
+  segments.pop();
+  const parent = segments.join("/");
+  return { etat, sortie: chemin.startsWith("/") ? "/" + parent : parent || "." };
+};
+
+/* ───────────── Système (simulé) ───────────── */
+
+const NOM_MACHINE = "isitech";
+const uname: Cmd = ({ etat, args }) => ({
+  etat,
+  sortie: args.includes("-a")
+    ? `Linux ${NOM_MACHINE} 6.8.0-isitech #1 SMP x86_64 GNU/Linux`
+    : "Linux",
+});
+const hostname: Cmd = ({ etat }) => ({ etat, sortie: NOM_MACHINE });
+const date: Cmd = ({ etat }) => ({
+  etat,
+  sortie: new Date().toLocaleString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+});
+const uptime: Cmd = ({ etat }) => {
+  const minutes = Math.max(1, Math.round(performance.now() / 60000));
+  return { etat, sortie: ` ${new Date().toLocaleTimeString("fr-FR")} up ${minutes} min, 1 utilisateur` };
+};
+const id: Cmd = ({ etat }) => ({
+  etat,
+  sortie: `uid=1000(${etat.utilisateur}) gid=1000(${etat.utilisateur}) groupes=1000(${etat.utilisateur})`,
+});
+const groups: Cmd = ({ etat }) => ({ etat, sortie: etat.utilisateur });
+const which: Cmd = ({ etat, args }) => {
+  const nom = args[0];
+  if (!nom) return erreur(etat, "which: usage which COMMANDE");
+  return COMMANDES[nom] ? { etat, sortie: `/usr/bin/${nom}` } : erreur(etat, `which: aucune ${nom} dans le PATH`);
+};
+const ps: Cmd = ({ etat }) => ({
+  etat,
+  sortie: [
+    "  PID TTY          TIME CMD",
+    "    1 ?        00:00:02 systemd",
+    "  412 ?        00:00:00 sshd",
+    "  530 pts/0    00:00:00 bash",
+    "  977 pts/0    00:00:00 ps",
+  ].join("\n"),
+});
+const free: Cmd = ({ etat, args }) => {
+  const h = args.includes("-h");
+  return {
+    etat,
+    sortie: [
+      "               total        utilisé       libre",
+      h ? "Mém :           2,0Gi        812Mi       1,2Gi" : "Mém :         2097152      831488    1265664",
+    ].join("\n"),
+  };
+};
+const env: Cmd = ({ etat }) => ({
+  etat,
+  sortie: [
+    `USER=${etat.utilisateur}`,
+    `HOME=/home/${etat.utilisateur}`,
+    `PWD=${chemins(etat)}`,
+    "SHELL=/bin/bash",
+    `HOSTNAME=${NOM_MACHINE}`,
+  ].join("\n"),
+});
+const seq: Cmd = ({ etat, args }) => {
+  const nombres = args.map(Number);
+  if (args.length === 0 || nombres.some((x) => !Number.isInteger(x))) return erreur(etat, "seq: usage seq [DEBUT] FIN");
+  const [debut, fin] = nombres.length === 1 ? [1, nombres[0]!] : [nombres[0]!, nombres[1]!];
+  if (fin - debut > 1000) return erreur(etat, "seq: trop de nombres (limite 1000)");
+  const sortie: string[] = [];
+  for (let k = debut; k <= fin; k++) sortie.push(String(k));
+  return { etat, sortie: sortie.join("\n") };
+};
+
+/* ───────────── Réseau (simulé : seule la machine locale est joignable) ───────────── */
+
+const ip: Cmd = ({ etat, args }) => {
+  if (args.length && !["a", "addr", "address"].includes(args[0]!)) return erreur(etat, `ip: option inconnue : ${args[0]}`);
+  return {
+    etat,
+    sortie: [
+      "1: lo: <LOOPBACK,UP> state UP",
+      "    inet 127.0.0.1/8 scope host lo",
+      "2: eth0: <BROADCAST,MULTICAST,UP> state UP",
+      "    inet 192.168.15.50/24 scope global eth0",
+    ].join("\n"),
+  };
+};
+
+const HOTES_LOCAUX = ["localhost", "127.0.0.1", NOM_MACHINE];
+const ping: Cmd = ({ etat, args }) => {
+  const i = args.indexOf("-c");
+  const compte = i >= 0 ? Number(args[i + 1]) : 3;
+  if (!Number.isInteger(compte) || compte < 1 || compte > 5) return erreur(etat, "ping: nombre de paquets entre 1 et 5");
+  const hote = args.filter((a, k) => !a.startsWith("-") && args[k - 1] !== "-c").at(-1);
+  if (!hote) return erreur(etat, "ping: usage ping [-c N] HOTE");
+  if (!HOTES_LOCAUX.includes(hote))
+    return erreur(etat, `ping: ${hote} : hôte injoignable (simulation : seule la machine locale répond)`);
+  const lignes = Array.from({ length: compte }, (_, k) => `64 octets de ${hote} : icmp_seq=${k + 1} ttl=64 temps=0.0${4 + k} ms`);
+  lignes.push("", `--- statistiques ping ${hote} ---`, `${compte} paquets transmis, ${compte} reçus, 0% de perte`);
+  return { etat, sortie: lignes.join("\n") };
+};
+
+/* ───────────── Services (simulés) ───────────── */
+
+const SERVICES: Record<string, { description: string; actif: boolean }> = {
+  sshd: { description: "OpenSSH server daemon", actif: true },
+  cron: { description: "Regular background program processing daemon", actif: true },
+  nginx: { description: "A high performance web server", actif: false },
+  mysql: { description: "MySQL Community Server", actif: false },
+};
+const systemctl: Cmd = ({ etat, args }) => {
+  if (args[0] !== "status" || !args[1]) return erreur(etat, "systemctl: usage systemctl status SERVICE");
+  const nom = args[1].replace(/\.service$/, "");
+  const service = SERVICES[nom];
+  if (!service) return erreur(etat, `Unit ${nom}.service could not be found.`);
+  return {
+    etat,
+    sortie: [
+      `● ${nom}.service - ${service.description}`,
+      `     Active: ${service.actif ? "active (running)" : "inactive (dead)"}`,
+    ].join("\n"),
+  };
+};
+
+/* ───────────── Droits (réservés à root) ───────────── */
+
+const reserveRoot = (nom: string): Cmd => ({ etat }) =>
+  erreur(etat, `${nom}: opération non permise : il faut être root (simulation)`);
+
 const AIDE = `Commandes disponibles :
-  pwd, ls [-a] [-l], cd DOSSIER, mkdir [-p] DOSSIER, rmdir DOSSIER
-  touch FICHIER, rm [-r] [-f] CIBLE, cp [-r] SRC DST, mv SRC DST
-  cat FICHIER, echo TEXTE [> ou >> FICHIER], grep MOTIF FICHIER, find DOSSIER -name MOTIF
-  chmod MODE FICHIER (ex : chmod 644 fichier), du [-h], df [-h], truncate -s TAILLE FICHIER
-  whoami, clear, help`;
+  Fichiers : pwd, ls [-a] [-l], cd DOSSIER, mkdir [-p] DOSSIER, rmdir DOSSIER, touch FICHIER
+             rm [-r] [-f] CIBLE, cp [-r] SRC DST, mv SRC DST, tree [DOSSIER], stat FICHIER
+             file FICHIER, basename CHEMIN, dirname CHEMIN, find DOSSIER -name MOTIF
+  Texte   : cat FICHIER, echo TEXTE [> ou >> FICHIER], head [-n N] FICHIER, tail [-n N] FICHIER
+            wc [-l|-w|-c] FICHIER, sort [-r] FICHIER, uniq FICHIER, grep MOTIF FICHIER
+  Espace  : du [-h], df [-h], free [-h], truncate -s TAILLE FICHIER
+  Droits  : chmod MODE FICHIER (ex : chmod 644 fichier), chown, useradd, passwd
+  Système : whoami, id, groups, hostname, uname [-a], date, uptime, env, which COMMANDE, ps, seq [DEBUT] FIN
+  Réseau  : ip a, ping [-c N] HOTE (seule la machine locale répond)
+  Services: systemctl status SERVICE (sshd, cron, nginx, mysql)
+  Aide    : help, man COMMANDE, clear`;
 const help: Cmd = ({ etat }) => ({ etat, sortie: AIDE });
+
+/** Pages du manuel (man COMMANDE) : description et syntaxe de chaque commande. */
+const MANUEL: Record<string, { description: string; usage: string }> = {
+  ls: { description: "Liste le contenu d'un dossier.", usage: "ls [-a] [-l] [DOSSIER]" },
+  cd: { description: "Change de dossier courant.", usage: "cd DOSSIER" },
+  mkdir: { description: "Crée un dossier.", usage: "mkdir [-p] DOSSIER" },
+  cat: { description: "Affiche le contenu d'un fichier.", usage: "cat FICHIER" },
+  echo: { description: "Affiche un texte, ou l'écrit dans un fichier avec > ou >>.", usage: "echo TEXTE [> ou >> FICHIER]" },
+  head: { description: "Affiche les premières lignes d'un fichier (10 par défaut).", usage: "head [-n N] FICHIER" },
+  tail: { description: "Affiche les dernières lignes d'un fichier (10 par défaut).", usage: "tail [-n N] FICHIER" },
+  wc: { description: "Compte les lignes, les mots et les octets d'un fichier.", usage: "wc [-l|-w|-c] FICHIER" },
+  sort: { description: "Trie les lignes d'un fichier par ordre alphabétique.", usage: "sort [-r] FICHIER" },
+  uniq: { description: "Supprime les lignes identiques qui se suivent.", usage: "uniq FICHIER" },
+  grep: { description: "Affiche les lignes d'un fichier qui contiennent un motif.", usage: "grep MOTIF FICHIER" },
+  find: { description: "Recherche des fichiers par nom dans une arborescence.", usage: "find DOSSIER -name MOTIF" },
+  tree: { description: "Affiche l'arborescence d'un dossier.", usage: "tree [DOSSIER]" },
+  stat: { description: "Affiche les détails d'un fichier : taille et droits.", usage: "stat FICHIER" },
+  file: { description: "Indique le type d'un fichier.", usage: "file FICHIER" },
+  basename: { description: "Donne le nom d'un fichier sans son chemin.", usage: "basename CHEMIN" },
+  dirname: { description: "Donne le dossier qui contient un chemin.", usage: "dirname CHEMIN" },
+  chmod: { description: "Change les droits d'un fichier (notation octale : 644, 755…).", usage: "chmod MODE FICHIER" },
+  chown: { description: "Change le propriétaire d'un fichier. Réservé à root.", usage: "chown UTILISATEUR FICHIER" },
+  du: { description: "Affiche la taille occupée par un dossier.", usage: "du [-h] [DOSSIER]" },
+  df: { description: "Affiche l'espace disque libre et utilisé.", usage: "df [-h]" },
+  free: { description: "Affiche la mémoire utilisée et libre.", usage: "free [-h]" },
+  ip: { description: "Affiche les interfaces réseau et leurs adresses IP.", usage: "ip a" },
+  ping: { description: "Vérifie qu'une machine répond (simulation : seule la machine locale répond).", usage: "ping [-c N] HOTE" },
+  systemctl: { description: "Affiche l'état d'un service système.", usage: "systemctl status SERVICE" },
+  ps: { description: "Liste les processus en cours.", usage: "ps" },
+  seq: { description: "Affiche une suite de nombres entiers.", usage: "seq [DEBUT] FIN" },
+  which: { description: "Indique où se trouve une commande.", usage: "which COMMANDE" },
+};
+
+/** man COMMANDE : affiche la page du manuel ; sans argument, renvoie l'aide générale. */
+const man: Cmd = ({ etat, args }) => {
+  const nom = args[0];
+  if (!nom) return { etat, sortie: AIDE };
+  const page = MANUEL[nom];
+  if (!page) return erreur(etat, `Aucune entrée de manuel pour ${nom}`);
+  return { etat, sortie: `NOM\n  ${nom} - ${page.description}\n\nSYNTAXE\n  ${page.usage}` };
+};
 
 const COMMANDES: Record<string, Cmd> = {
   ls,
@@ -475,7 +784,34 @@ const COMMANDES: Record<string, Cmd> = {
   find,
   grep,
   help,
-  man: help,
+  man,
+  head,
+  tail,
+  wc,
+  sort,
+  uniq,
+  tree,
+  stat,
+  file,
+  basename,
+  dirname,
+  uname,
+  hostname,
+  date,
+  uptime,
+  id,
+  groups,
+  which,
+  ps,
+  free,
+  env,
+  seq,
+  ip,
+  ping,
+  systemctl,
+  chown: reserveRoot("chown"),
+  useradd: reserveRoot("useradd"),
+  passwd: reserveRoot("passwd"),
 };
 
 /** Exécute une ligne de commande. N'altère jamais l'état reçu (immutabilité, comme tout le moteur du jeu). */

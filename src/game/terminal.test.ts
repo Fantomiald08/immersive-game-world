@@ -246,3 +246,91 @@ describe("robustesse générale", () => {
     expect(sortieDe(etatInitial(), "help")).toContain("mkdir");
   });
 });
+
+describe("nouvelles commandes Linux", () => {
+  const prepare = () =>
+    enchainer(
+      etatInitial(),
+      "echo ligne1 > notes.txt",
+      "echo ligne2 >> notes.txt",
+      "echo ligne3 >> notes.txt",
+      "mkdir projet",
+      "touch projet/readme",
+    );
+
+  it("head et tail affichent les premières et dernières lignes", () => {
+    const e = prepare();
+    expect(sortieDe(e, "head -n 1 notes.txt")).toBe("ligne1");
+    expect(sortieDe(e, "tail -n 2 notes.txt")).toBe("ligne2\nligne3");
+    expect(sortieDe(e, "head notes.txt")).toBe("ligne1\nligne2\nligne3");
+  });
+
+  it("wc compte les lignes, les mots et les octets", () => {
+    const e = prepare();
+    expect(sortieDe(e, "wc -l notes.txt")).toBe("3 notes.txt");
+    expect(sortieDe(e, "wc -w notes.txt")).toBe("3 notes.txt");
+    expect(sortieDe(e, "wc -c notes.txt")).toBe("21 notes.txt");
+  });
+
+  it("sort et uniq trient et suppriment les doublons consécutifs", () => {
+    const e = enchainer(etatInitial(), "echo b > t", "echo a >> t", "echo a >> t");
+    expect(sortieDe(e, "sort t")).toBe("a\na\nb");
+    expect(sortieDe(e, "sort -r t")).toBe("b\na\na");
+    expect(sortieDe(e, "uniq t")).toBe("b\na");
+  });
+
+  it("tree affiche l'arborescence avec son bilan", () => {
+    const sortie = sortieDe(prepare(), "tree");
+    expect(sortie).toContain("├── notes.txt");
+    expect(sortie).toContain("└── projet/");
+    expect(sortie).toContain("1 dossier(s), 2 fichier(s)");
+  });
+
+  it("basename et dirname découpent un chemin", () => {
+    expect(sortieDe(etatInitial(), "basename /var/log/syslog")).toBe("syslog");
+    expect(sortieDe(etatInitial(), "dirname /var/log/syslog")).toBe("/var/log");
+  });
+
+  it("stat donne la taille et les droits", () => {
+    const sortie = sortieDe(prepare(), "stat notes.txt");
+    expect(sortie).toContain("Taille  : 21 octets");
+    expect(sortie).toContain("Type    : fichier ordinaire");
+  });
+
+  it("ping répond seulement pour la machine locale", () => {
+    const e = etatInitial();
+    expect(executer(e, "ping -c 2 localhost").erreur).toBe(false);
+    expect(sortieDe(e, "ping -c 2 localhost")).toContain("2 paquets transmis");
+    expect(executer(e, "ping 8.8.8.8").erreur).toBe(true);
+  });
+
+  it("systemctl indique l'état d'un service connu", () => {
+    const e = etatInitial();
+    expect(sortieDe(e, "systemctl status sshd")).toContain("active (running)");
+    expect(sortieDe(e, "systemctl status nginx")).toContain("inactive (dead)");
+    expect(executer(e, "systemctl status inconnu").erreur).toBe(true);
+  });
+
+  it("chown, useradd et passwd sont refusés hors root", () => {
+    const e = etatInitial();
+    for (const c of ["chown eleve fichier", "useradd bob", "passwd"]) {
+      expect(executer(e, c).erreur).toBe(true);
+    }
+  });
+
+  it("seq et id, which et man répondent", () => {
+    const e = etatInitial();
+    expect(sortieDe(e, "seq 3")).toBe("1\n2\n3");
+    expect(sortieDe(e, "seq 2 4")).toBe("2\n3\n4");
+    expect(sortieDe(e, "id")).toContain("uid=1000(eleve)");
+    expect(sortieDe(e, "which ls")).toBe("/usr/bin/ls");
+    expect(sortieDe(e, "man ls")).toContain("ls - Liste le contenu");
+    expect(executer(e, "man inconnu").erreur).toBe(true);
+  });
+
+  it("l'aide liste les nouvelles commandes", () => {
+    const aide = sortieDe(etatInitial(), "help");
+    expect(aide).toContain("systemctl");
+    expect(aide).toContain("tree");
+  });
+});
