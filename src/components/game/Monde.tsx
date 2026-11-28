@@ -177,6 +177,8 @@ type Props = {
   autres: Distant[];
   lireAutres: () => Map<string, Distant>;
   moi: Profil;
+  /** Cosmétiques équipés du joueur local (couleur de pseudo, badge). */
+  cosmetiques?: { couleur?: string | undefined; badge?: string | undefined };
   pause: boolean;
   bulles: Record<string, string>;
   statuts: Record<string, string>;
@@ -206,6 +208,7 @@ export function Monde({
   autres,
   lireAutres,
   moi,
+  cosmetiques,
   pause,
   bulles,
   statuts,
@@ -522,6 +525,8 @@ export function Monde({
           />
           <Personnage
             a={moi.apparence}
+            couleurPseudo={cosmetiques?.couleur}
+            badge={cosmetiques?.badge}
             dir={ui.dir}
             marche={ui.marche}
             taille={T * 1.5}

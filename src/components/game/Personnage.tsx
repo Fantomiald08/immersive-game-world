@@ -26,6 +26,8 @@ export function Personnage({
   taille = 96,
   pseudo,
   niveau,
+  couleurPseudo,
+  badge,
 }: {
   a: Apparence;
   dir?: Direction;
@@ -33,6 +35,10 @@ export function Personnage({
   taille?: number;
   pseudo?: string;
   niveau?: number;
+  /** Couleur du pseudo équipée dans la boutique ; blanc par défaut. */
+  couleurPseudo?: string | undefined;
+  /** Badge équipé (emoji) affiché devant le pseudo. */
+  badge?: string | undefined;
 }) {
   const [f, setF] = useState(0);
   useEffect(() => {
@@ -75,7 +81,11 @@ export function Personnage({
       style={{ width: taille * (16 / 25) }}
     >
       {pseudo && (
-        <div className="mb-1 whitespace-nowrap bg-background/85 px-1 font-pixel text-[8px] leading-tight text-primary">
+        <div
+          className="mb-1 whitespace-nowrap bg-background/85 px-1 font-pixel text-[8px] leading-tight text-primary"
+          style={couleurPseudo ? { color: couleurPseudo } : undefined}
+        >
+          {badge && <span aria-hidden>{badge} </span>}
           {pseudo}
           {niveau !== undefined && <span className="text-accent"> Nv{niveau}</span>}
         </div>

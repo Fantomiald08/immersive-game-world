@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Personnage } from "./Personnage";
 import { majProfil, useProfil, type Profil } from "@/game/profil";
+import { useEquipements } from "@/game/boutique-data";
+import { valeurDe } from "@/game/boutique";
 
 /** Fiche joueur : lecture pour les autres, modification pour soi. */
 export function ProfilCarte({
@@ -14,6 +16,7 @@ export function ProfilCarte({
   onMaj: () => Promise<unknown>;
 }) {
   const { data: p, isLoading } = useProfil(id);
+  const equipements = useEquipements(id);
   const [edit, setEdit] = useState(false);
   const [pseudo, setPseudo] = useState(""),
     [bio, setBio] = useState(""),
@@ -81,7 +84,7 @@ export function ProfilCarte({
           <>
             <div className="font-pixel text-sm text-accent">{p.pseudo}</div>
             <div>
-              {p.titre} · Niveau {p.niveau} · {p.xp} XP
+              {valeurDe(equipements.data?.["titre"]) ?? p.titre} · Niveau {p.niveau} · {p.xp} XP
             </div>
             <div className="h-3 border-2 border-border bg-muted">
               <div className="h-full bg-primary" style={{ width: `${p.xp % 100}%` }} />

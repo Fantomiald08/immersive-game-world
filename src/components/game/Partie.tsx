@@ -42,9 +42,13 @@ import { majReglages, useReglages } from "@/game/reglages";
 import { jouer } from "@/game/son";
 import { departSolo, ecrireSolo } from "@/game/solo";
 import { supabase } from "@/integrations/supabase/client";
+import { Boutique } from "./Boutique";
+import { useEquipements } from "@/game/boutique-data";
+import { badgeEquipe, couleurPseudoEquipee, NOM_MONNAIE } from "@/game/boutique";
 
 type Fen =
   | { k: "profil"; id: string }
+  | { k: "boutique" }
   | { k: "texte"; titre: string; texte: string }
   | { k: "classement" }
   | { k: "reglages" }
@@ -105,6 +109,7 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
   zoneIdRef.current = zoneId;
   const [fondu, setFondu] = useState(false);
   const [fen, setFen] = useState<Fen | null>(null);
+  const equipMoi = useEquipements(moi.id);
   const [terminal, setTerminal] = useState<null | "cours" | "combat" | "linux" | "arcade" | "serveur">(null);
   const [defiFait, setDefiFait] = useState(() => lireDefi(moi.id));
   const [toast, setToast] = useState("");
@@ -161,17 +166,19 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
     async (n: number, texte: string) => {
       if (n <= 0) return;
       try {
-        await ajouterXp(n);
+        const r = await ajouterXp(n);
         if (solo) xpSolo.current += n;
         await refresh();
         void qc.invalidateQueries({ queryKey: ["heros"] });
+        void qc.invalidateQueries({ queryKey: ["boutique", moi.id] });
         jouer("xp");
-        annoncer(`+${n} XP · ${texte}`);
+        annoncer(`+${n} XP · +${r.isicoins} ${NOM_MONNAIE} · ${texte}`);
+        if (r.niveau > r.niveauAvant) annoncer(`Montée de niveau ! Tu es maintenant niveau ${r.niveau}.`);
       } catch {
         annoncer("Impossible d'ajouter l'XP pour le moment.");
       }
     },
-    [annoncer, qc, refresh, solo],
+    [annoncer, qc, refresh, solo, moi.id],
   );
 
   /** Quêtes et badges : enregistre l'événement, donne l'XP des quêtes terminées. */
@@ -279,6 +286,9 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
           break;
         case "serveur":
           setTerminal("serveur");
+          break;
+        case "boutique":
+          setFen({ k: "boutique" });
           break;
         case "classement":
           void qc.invalidateQueries({ queryKey: ["heros"] });
@@ -496,6 +506,7 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
       <div className="relative">
         <Monde
           key={zoneId}
+          cosmetiques={{ couleur: couleurPseudoEquipee(equipMoi.data), badge: badgeEquipe(equipMoi.data) }}
           zone={zone}
           depart={depart}
           pnjs={pnjs}
@@ -658,6 +669,7 @@ function Partie({ moi, mode }: { moi: Profil; mode: ModeJeu }) {
           </button>
         </Fenetre>
       )}
+      {fen?.k === "boutique" && <Boutique uid={moi.id} onFermer={fermer} />}
       {fen?.k === "classement" && (
         <Fenetre titre="🏆 Top 10 · XP" onFermer={fermer}>
           <ol className="space-y-2">
