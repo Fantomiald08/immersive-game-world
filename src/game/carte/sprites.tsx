@@ -39,6 +39,19 @@ const Bureau = ({ W, H, o }: P, bois = o.c ?? BOIS) => (
 );
 
 const ART: Record<string, (p: P) => ReactNode> = {
+  boutique: ({ W, H }) => (
+    <>
+      {ombre(W, H)}
+      {bx(0, H - 16, W, 11, "#4a2c1a")}
+      {bx(2, H - 34, W - 4, 19, "#8a5a33")}
+      {rc(4, H - 31, W - 8, 13, "#ffd166")}
+      {rc(6, H - 29, W - 12, 2, "#1d1020")}
+      {rc(6, H - 25, 3, 3, "#ffe14d")}
+      {rc(W - 10, H - 25, 3, 3, "#ffe14d")}
+      {rc(W / 2 - 2, H - 25, 4, 3, "#ffb84d")}
+      {bx(W / 2 - 3, H - 14, 6, 3, "#1d1020")}
+    </>
+  ),
   serveurwin: ({ W, H }) => (
     <>
       {ombre(W, H)}

@@ -43,6 +43,9 @@ export function interactions(z: Zone): Interaction[] {
       case "serveur":
         r.push({ ...base, icone: "🖥️", nom: "Gestionnaire de serveur (admin)", type: "ordinateur" });
         break;
+      case "boutique":
+        r.push({ ...base, icone: "🛍️", nom: "Boutique ISITECH", type: "ordinateur" });
+        break;
       case "classement":
         r.push({ ...base, icone: "🏆", nom: "Classement des élèves", type: "classement" });
         break;

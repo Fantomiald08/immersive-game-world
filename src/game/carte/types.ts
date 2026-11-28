@@ -72,6 +72,7 @@ export type Kind =
   | "pcgamer"
   | "pclinux"
   | "serveurwin"
+  | "boutique"
   | "arcade";
 
 /** Ce qui se passe quand on appuie sur Espace devant un objet. */
@@ -84,6 +85,7 @@ export type Agir =
   | { k: "classement" }
   | { k: "tableau" }
   | { k: "serveur" }
+  | { k: "boutique" }
   | { k: "texte"; titre: string; texte: string };
 
 export type Objet = {

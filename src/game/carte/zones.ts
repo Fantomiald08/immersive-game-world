@@ -37,6 +37,7 @@ const o = (kind: Kind, x: number, y: number, e: Partial<Objet> = {}): Objet => {
   if (kind === "pclinux") return { ...base, agir: { k: "terminal_linux" } };
   if (kind === "arcade") return { ...base, agir: { k: "arcade" } };
   if (kind === "serveurwin") return { ...base, agir: { k: "serveur" } };
+  if (kind === "boutique") return { ...base, agir: { k: "boutique" } };
   return base;
 };
 const pnj = (
@@ -679,6 +680,7 @@ const SALLES_DEF: Zone[] = [
       o("armoire", 10, 3),
       o("imprimante", 10, 5),
       o("plante", 10, 7),
+      o("boutique", 8, 7),
     ],
     [
       pnj(

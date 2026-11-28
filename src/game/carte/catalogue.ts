@@ -46,5 +46,6 @@ export const DIM: Record<
   pcgamer: { w: 2, h: 1, hh: 1 },
   pclinux: { w: 2, h: 1, hh: 1 },
   serveurwin: { w: 2, h: 1, hh: 1 },
+  boutique: { w: 2, h: 1, hh: 1 },
   arcade: { w: 1, h: 1, hh: 1 },
 };
