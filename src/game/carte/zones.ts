@@ -680,7 +680,7 @@ const SALLES_DEF: Zone[] = [
       o("armoire", 10, 3),
       o("imprimante", 10, 5),
       o("plante", 10, 7),
-      o("boutique", 8, 7),
+      o("boutique", 1, 7),
     ],
     [
       pnj(

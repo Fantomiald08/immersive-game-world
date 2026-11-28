@@ -42,14 +42,41 @@ const ART: Record<string, (p: P) => ReactNode> = {
   boutique: ({ W, H }) => (
     <>
       {ombre(W, H)}
-      {bx(0, H - 16, W, 11, "#4a2c1a")}
-      {bx(2, H - 34, W - 4, 19, "#8a5a33")}
-      {rc(4, H - 31, W - 8, 13, "#ffd166")}
-      {rc(6, H - 29, W - 12, 2, "#1d1020")}
-      {rc(6, H - 25, 3, 3, "#ffe14d")}
-      {rc(W - 10, H - 25, 3, 3, "#ffe14d")}
-      {rc(W / 2 - 2, H - 25, 4, 3, "#ffb84d")}
-      {bx(W / 2 - 3, H - 14, 6, 3, "#1d1020")}
+      {/* Auvent rayé avec ses festons */}
+      {bx(0, H - 36, W, 4, "#b5401c")}
+      {Array.from({ length: Math.floor(W / 4) }, (_, i) => (
+        <g key={`auvent-${i}`}>
+          {rc(i * 4, H - 32, 2, 7, i % 2 ? "#fff5e0" : "#e8702a")}
+          {rc(i * 4, H - 25, 2, 1, "#b5401c")}
+        </g>
+      ))}
+      {/* Enseigne lumineuse sous l'auvent */}
+      {rc(W / 2 - 12, H - 30, 24, 5, "#1d1020")}
+      {rc(W / 2 - 11, H - 29, 22, 3, "#ffd166")}
+      {rc(W / 2 - 8, H - 29, 2, 3, "#1d1020")}
+      {rc(W / 2 - 3, H - 29, 2, 3, "#1d1020")}
+      {rc(W / 2 + 2, H - 29, 2, 3, "#1d1020")}
+      {/* Étagère du fond avec produits */}
+      {rc(3, H - 46, W - 6, 2, "#5a3a22")}
+      {rc(5, H - 44, 3, 4, "#19e6ff")}
+      {rc(10, H - 44, 3, 4, "#ff3fb4")}
+      {rc(W - 14, H - 44, 3, 4, "#ffe14d")}
+      {rc(W - 9, H - 44, 3, 4, "#6ee7a0")}
+      {/* Comptoir : corps, panneaux et plateau */}
+      {bx(0, H - 20, W, 14, "#4a2c1a")}
+      {rc(2, H - 17, W - 4, 1, "#6b4226")}
+      {rc(2, H - 12, W - 4, 1, "#6b4226")}
+      {bx(0, H - 22, W, 3, "#c48a55")}
+      {rc(1, H - 22, W - 2, 1, "#e0a86a")}
+      {/* Produits posés sur le comptoir et pile de pièces */}
+      {rc(4, H - 26, 4, 4, "#8a5a33")}
+      {rc(4, H - 26, 4, 1, "#19e6ff")}
+      {rc(W - 12, H - 27, 4, 5, "#ff3fb4")}
+      {rc(W / 2 - 1, H - 26, 4, 4, "#ffd166")}
+      {rc(W / 2 - 1, H - 25, 4, 1, "#ffe14d")}
+      {/* Pieds et ombre de la caisse */}
+      {rc(1, H - 6, 3, 3, "#1d1020")}
+      {rc(W - 4, H - 6, 3, 3, "#1d1020")}
     </>
   ),
   serveurwin: ({ W, H }) => (
