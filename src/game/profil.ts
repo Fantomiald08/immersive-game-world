@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { normaliser, type Apparence } from "./apparence";
+import { isicoinsPourXp } from "./boutique";
 
 export type Profil = {
   id: string; pseudo: string; bio: string; titre: string; xp: number; niveau: number;
@@ -56,8 +57,19 @@ export function useHeros() {
   });
 }
 
-/** Gain d'XP : seule la fonction serveur ajouter_xp peut modifier xp/niveau (plafonnée à 50 par appel). */
-export async function ajouterXp(montant: number) {
-  const { error } = await supabase.rpc("ajouter_xp", { montant });
+export type ResultatRecompense = { xp: number; niveau: number; niveauAvant: number; isicoins: number };
+
+/**
+ * Gain d'un exploit : XP et ISICoins sont ajoutés au même compte, en solo comme en multijoueur.
+ * Le serveur plafonne chaque gain à 50 et calcule le niveau ; le client compare avant/après pour annoncer la montée de niveau.
+ */
+export async function ajouterXp(montant: number): Promise<ResultatRecompense> {
+  const { data, error } = await supabase.rpc("attribuer_recompense", {
+    montant,
+    monnaie: isicoinsPourXp(montant),
+  });
   if (error) throw error;
+  const ligne = data?.[0];
+  if (!ligne) throw new Error("Réponse inattendue du serveur.");
+  return { xp: ligne.xp, niveau: ligne.niveau, niveauAvant: ligne.niveau_avant, isicoins: ligne.isicoins };
 }
