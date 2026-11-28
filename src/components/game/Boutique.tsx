@@ -6,8 +6,19 @@ import { acheterArticle, equiperArticle, useBoutique } from "@/game/boutique-dat
 
 type Message = { texte: string; erreur: boolean } | null;
 
-/** Message d'erreur lisible, qu'il vienne du serveur ou d'un contrôle local. */
-const messageErreur = (e: unknown): string => (e instanceof Error ? e.message : "L'opération a échoué, réessaie.");
+/** Message d'erreur lisible. Les erreurs Supabase sont des objets { message }, pas des Error. */
+const messageErreur = (e: unknown): string => {
+  const brut =
+    e instanceof Error
+      ? e.message
+      : typeof e === "object" && e !== null && typeof (e as { message?: unknown }).message === "string"
+        ? (e as { message: string }).message
+        : "";
+  if (!brut) return "L'opération a échoué, réessaie.";
+  if (/does not exist|n'existe pas|schema cache/i.test(brut))
+    return "La boutique n'est pas encore installée sur le serveur : applique la migration 0006_boutique_monnaie.sql.";
+  return brut;
+};
 
 /** Boutique : badges, titres, couleurs de pseudo, animaux et tenues, achetables avec des ISICoins. */
 export function Boutique({ uid, onFermer }: { uid: string; onFermer: () => void }) {
