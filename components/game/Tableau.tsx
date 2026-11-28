@@ -7,20 +7,20 @@ import type { Profil } from "@/game/profil";
 import type { Prog } from "@/game/progression";
 import { formaterDate, publierAnnonce, supprimerAnnonce, useReseau } from "@/game/reseau";
 
-import { resume, type EtatHistoire } from "@/game/histoire";
 
-type Onglet = "annonces" | "nouvelles" | "journal" | "histoire" | "evenements";
+type Onglet = "annonces" | "nouvelles" | "journal" | "evenements";
 
 /** Le tableau d'affichage de l'accueil : annonces, nouvelles, journal du joueur, événements. */
 export function Tableau({
   moi,
   prog,
-  histoire,
+  solo = false,
   onFermer,
 }: {
   moi: Profil;
   prog: Prog | null;
-  histoire: EtatHistoire;
+  /** Mode histoire (solo) : on masque le journal des quêtes, propre au multijoueur. */
+  solo?: boolean;
   onFermer: () => void;
 }) {
   const [onglet, setOnglet] = useState<Onglet>("annonces");
@@ -73,13 +73,13 @@ export function Tableau({
     }
     setEnvoi(false);
   };
-  const onglets: Array<[Onglet, string]> = [
+  const tous: Array<[Onglet, string]> = [
     ["annonces", "📢 Annonces"],
     ["nouvelles", "📰 Nouvelles"],
     ["journal", "📔 Mon journal"],
-    ["histoire", "📖 Histoire"],
     ["evenements", "🎃 Événements"],
   ];
+  const onglets = solo ? tous.filter(([k]) => k !== "journal") : tous;
 
   return (
     <Fenetre titre="📋 Tableau d'affichage" onFermer={onFermer} large>
@@ -167,8 +167,6 @@ export function Tableau({
 
       {onglet === "journal" && (prog ? <JournalContenu prog={prog} /> : <p>Chargement…</p>)}
 
-      {onglet === "histoire" && <HistoireContenu histoire={histoire} />}
-
       {onglet === "evenements" && (
         <div className="space-y-2 text-lg">
           <p>Aucun événement en cours.</p>
@@ -182,42 +180,5 @@ export function Tableau({
         Fermer
       </button>
     </Fenetre>
-  );
-}
-
-/** Contenu de l'onglet Histoire : chapitre en cours, avancement et missions. */
-function HistoireContenu({ histoire }: { histoire: EtatHistoire }) {
-  const r = resume(histoire);
-  if (r.terminee)
-    return (
-      <div className="space-y-2 text-lg">
-        <p className="font-pixel text-[10px] text-accent">HISTOIRE TERMINÉE</p>
-        <p>
-          Tu as sauvegardé Isitech du Ransomware. Les prochains événements (Halloween, Noël)
-          arriveront bientôt.
-        </p>
-      </div>
-    );
-  if (!r.chapitre) return null;
-  return (
-    <div className="space-y-3 text-lg">
-      <div className="font-pixel text-[9px] text-muted-foreground">Avancement : {r.pourcent} %</div>
-      <div className="h-3 border-2 border-border bg-muted">
-        <div
-          className="h-full bg-accent transition-all duration-500"
-          style={{ width: `${r.pourcent}%` }}
-        />
-      </div>
-      <h3 className="font-pixel text-[10px] text-accent">{r.chapitre.titre}</h3>
-      <p>{r.chapitre.intro}</p>
-      <ul className="space-y-1">
-        {r.missions.map(({ mission, faite }) => (
-          <li key={mission.id} className={faite ? "text-primary" : ""}>
-            {faite ? "✔" : "☐"} {mission.objectif}{" "}
-            <span className="text-sm text-muted-foreground">(+{mission.xp} XP)</span>
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }
